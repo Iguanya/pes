@@ -177,6 +177,9 @@ export async function createUser(userData: {
 
     const insertResult = result as mysql.ResultSetHeader
 
+    // Create default settings for the new user
+    await connection.execute(`INSERT INTO user_settings (user_id) VALUES (?)`, [insertResult.insertId])
+
     // Get the created user
     const [users] = await connection.execute(
       "SELECT id, email, name, phone, gamertag, role, created_at FROM users WHERE id = ?",
@@ -208,6 +211,226 @@ export async function getUserById(id: number) {
       [id],
     )
     return (rows as any[])[0] || null
+  })
+}
+
+// User Settings Management
+export async function getUserSettings(userId: number) {
+  return withConnection(async (connection) => {
+    const [rows] = await connection.execute(
+      `SELECT 
+        email_tournaments, email_matches, email_marketing,
+        sms_tournaments, sms_matches, push_notifications,
+        language, timezone, theme, currency,
+        profile_visibility, show_stats, show_earnings, allow_friend_requests
+       FROM user_settings 
+       WHERE user_id = ?`,
+      [userId],
+    )
+
+    const settings = (rows as any[])[0]
+
+    if (!settings) {
+      // Create default settings if none exist
+      await connection.execute(`INSERT INTO user_settings (user_id) VALUES (?)`, [userId])
+
+      // Return default settings
+      return {
+        notifications: {
+          email_tournaments: true,
+          email_matches: true,
+          email_marketing: false,
+          sms_tournaments: true,
+          sms_matches: false,
+          push_notifications: false,
+        },
+        preferences: {
+          language: "en",
+          timezone: "Africa/Nairobi",
+          theme: "system",
+          currency: "KES",
+        },
+        privacy: {
+          profile_visibility: "public",
+          show_stats: true,
+          show_earnings: false,
+          allow_friend_requests: true,
+        },
+      }
+    }
+
+    return {
+      notifications: {
+        email_tournaments: Boolean(settings.email_tournaments),
+        email_matches: Boolean(settings.email_matches),
+        email_marketing: Boolean(settings.email_marketing),
+        sms_tournaments: Boolean(settings.sms_tournaments),
+        sms_matches: Boolean(settings.sms_matches),
+        push_notifications: Boolean(settings.push_notifications),
+      },
+      preferences: {
+        language: settings.language,
+        timezone: settings.timezone,
+        theme: settings.theme,
+        currency: settings.currency,
+      },
+      privacy: {
+        profile_visibility: settings.profile_visibility,
+        show_stats: Boolean(settings.show_stats),
+        show_earnings: Boolean(settings.show_earnings),
+        allow_friend_requests: Boolean(settings.allow_friend_requests),
+      },
+    }
+  })
+}
+
+export async function updateUserSettings(
+  userId: number,
+  settings: {
+    notifications: {
+      email_tournaments: boolean
+      email_matches: boolean
+      email_marketing: boolean
+      sms_tournaments: boolean
+      sms_matches: boolean
+      push_notifications: boolean
+    }
+    preferences: {
+      language: string
+      timezone: string
+      theme: string
+      currency: string
+    }
+    privacy: {
+      profile_visibility: string
+      show_stats: boolean
+      show_earnings: boolean
+      allow_friend_requests: boolean
+    }
+  },
+) {
+  return withConnection(async (connection) => {
+    await connection.execute(
+      `UPDATE user_settings SET
+        email_tournaments = ?, email_matches = ?, email_marketing = ?,
+        sms_tournaments = ?, sms_matches = ?, push_notifications = ?,
+        language = ?, timezone = ?, theme = ?, currency = ?,
+        profile_visibility = ?, show_stats = ?, show_earnings = ?, allow_friend_requests = ?,
+        updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = ?`,
+      [
+        settings.notifications.email_tournaments,
+        settings.notifications.email_matches,
+        settings.notifications.email_marketing,
+        settings.notifications.sms_tournaments,
+        settings.notifications.sms_matches,
+        settings.notifications.push_notifications,
+        settings.preferences.language,
+        settings.preferences.timezone,
+        settings.preferences.theme,
+        settings.preferences.currency,
+        settings.privacy.profile_visibility,
+        settings.privacy.show_stats,
+        settings.privacy.show_earnings,
+        settings.privacy.allow_friend_requests,
+        userId,
+      ],
+    )
+
+    return true
+  })
+}
+
+// Password Reset Token Management
+export async function createPasswordResetToken(userId: number, token: string, expiresAt: Date) {
+  return withConnection(async (connection) => {
+    // Invalidate any existing tokens for this user
+    await connection.execute(`UPDATE password_reset_tokens SET used = TRUE WHERE user_id = ? AND used = FALSE`, [
+      userId,
+    ])
+
+    // Create new token
+    const [result] = await connection.execute(
+      `INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
+      [userId, token, expiresAt],
+    )
+
+    return (result as mysql.ResultSetHeader).insertId
+  })
+}
+
+export async function validatePasswordResetToken(token: string) {
+  return withConnection(async (connection) => {
+    const [rows] = await connection.execute(
+      `SELECT prt.*, u.email, u.id as user_id 
+       FROM password_reset_tokens prt
+       JOIN users u ON prt.user_id = u.id
+       WHERE prt.token = ? AND prt.used = FALSE AND prt.expires_at > NOW()`,
+      [token],
+    )
+
+    return (rows as any[])[0] || null
+  })
+}
+
+export async function usePasswordResetToken(token: string) {
+  return withConnection(async (connection) => {
+    await connection.execute(`UPDATE password_reset_tokens SET used = TRUE WHERE token = ?`, [token])
+  })
+}
+
+// Update user password
+export async function updateUserPassword(userId: number, passwordHash: string) {
+  return withConnection(async (connection) => {
+    await connection.execute(`UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [
+      passwordHash,
+      userId,
+    ])
+  })
+}
+
+// Update user profile
+export async function updateUserProfile(
+  userId: number,
+  profileData: {
+    name?: string
+    phone?: string
+    gamertag?: string
+    profile_image?: string
+  },
+) {
+  return withConnection(async (connection) => {
+    const updateFields: string[] = []
+    const updateValues: any[] = []
+
+    if (profileData.name !== undefined) {
+      updateFields.push("name = ?")
+      updateValues.push(profileData.name)
+    }
+    if (profileData.phone !== undefined) {
+      updateFields.push("phone = ?")
+      updateValues.push(profileData.phone)
+    }
+    if (profileData.gamertag !== undefined) {
+      updateFields.push("gamertag = ?")
+      updateValues.push(profileData.gamertag)
+    }
+    if (profileData.profile_image !== undefined) {
+      updateFields.push("profile_image = ?")
+      updateValues.push(profileData.profile_image)
+    }
+
+    if (updateFields.length === 0) {
+      throw new Error("No fields to update")
+    }
+
+    updateFields.push("updated_at = CURRENT_TIMESTAMP")
+    updateValues.push(userId)
+
+    await connection.execute(`UPDATE users SET ${updateFields.join(", ")} WHERE id = ?`, updateValues)
+
+    // Return updated user
+    return getUserById(userId)
   })
 }
 
@@ -408,8 +631,8 @@ export async function getRecentActivity(userId: number, role: string, limit = 10
         WHERE  t.organizer_id = ? AND m.status = 'completed'
         ORDER BY timestamp DESC
         LIMIT ?
-      `;
-      params = [userId, userId, limit];
+      `
+      params = [userId, userId, limit]
     } else {
       // Player sees their activity
       query = `
@@ -433,10 +656,8 @@ export async function getRecentActivity(userId: number, role: string, limit = 10
         LIMIT ?
       `
 
-
       params = [userId, userId, userId, userId, limit]
       console.log("Params:", params)
-
     }
 
     const [rows] = await connection.execute(query, params)
@@ -562,6 +783,5 @@ if (typeof process !== "undefined" && process?.on && typeof window === "undefine
     process.exit(0)
   })
 }
-
 
 export default pool
