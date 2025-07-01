@@ -166,7 +166,7 @@ export async function createUser(userData: {
   name: string
   phone: string
   gamertag: string
-  role: "player" | "organizer"
+  role: "player" | "organizer" | "manager" | "admin"
 }) {
   return withConnection(async (connection) => {
     const [result] = await connection.execute(
@@ -211,6 +211,225 @@ export async function getUserById(id: number) {
   })
 }
 
+// Dashboard statistics functions
+export async function getUserStats(userId: number) {
+  return withConnection(async (connection) => {
+    // Get user's tournament participation stats
+    const [tournamentStats] = await connection.execute(
+      `SELECT 
+        COUNT(DISTINCT tr.tournament_id) as tournaments_joined,
+        COUNT(DISTINCT CASE WHEN t.status = 'ongoing' THEN tr.tournament_id END) as active_tournaments,
+        COALESCE(SUM(tr.entry_fee), 0) as total_spent
+       FROM tournament_registrations tr
+       LEFT JOIN tournaments t ON tr.tournament_id = t.id
+       WHERE tr.user_id = ? AND tr.payment_status = 'completed'`,
+      [userId],
+    )
+
+    // Get user's match stats
+    const [matchStats] = await connection.execute(
+      `SELECT 
+        COUNT(*) as total_matches,
+        COUNT(CASE WHEN winner_id = ? THEN 1 END) as wins,
+        COUNT(CASE WHEN (player1_id = ? OR player2_id = ?) AND winner_id IS NOT NULL THEN 1 END) as completed_matches
+       FROM matches 
+       WHERE (player1_id = ? OR player2_id = ?) AND status = 'completed'`,
+      [userId, userId, userId, userId, userId],
+    )
+
+    // Get user's earnings
+    const [earnings] = await connection.execute(
+      `SELECT COALESCE(SUM(amount), 0) as total_earnings
+       FROM payouts 
+       WHERE user_id = ? AND status = 'completed'`,
+      [userId],
+    )
+
+    const tournamentData = (tournamentStats as any[])[0]
+    const matchData = (matchStats as any[])[0]
+    const earningsData = (earnings as any[])[0]
+
+    const winRate =
+      matchData.completed_matches > 0 ? Math.round((matchData.wins / matchData.completed_matches) * 100) : 0
+
+    return {
+      tournaments_joined: tournamentData.tournaments_joined || 0,
+      active_tournaments: tournamentData.active_tournaments || 0,
+      total_spent: tournamentData.total_spent || 0,
+      total_matches: matchData.total_matches || 0,
+      wins: matchData.wins || 0,
+      win_rate: winRate,
+      total_earnings: earningsData.total_earnings || 0,
+    }
+  })
+}
+
+export async function getOrganizerStats(userId: number) {
+  return withConnection(async (connection) => {
+    // Get organizer's tournament stats
+    const [tournamentStats] = await connection.execute(
+      `SELECT 
+        COUNT(*) as total_tournaments,
+        COUNT(CASE WHEN status = 'ongoing' THEN 1 END) as active_tournaments,
+        COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_tournaments,
+        COALESCE(SUM(entry_fee * max_players), 0) as potential_revenue
+       FROM tournaments 
+       WHERE organizer_id = ?`,
+      [userId],
+    )
+
+    // Get total participants across all tournaments
+    const [participantStats] = await connection.execute(
+      `SELECT COUNT(DISTINCT tr.user_id) as total_participants
+       FROM tournaments t
+       LEFT JOIN tournament_registrations tr ON t.id = tr.tournament_id
+       WHERE t.organizer_id = ? AND tr.payment_status = 'completed'`,
+      [userId],
+    )
+
+    // Get actual revenue
+    const [revenueStats] = await connection.execute(
+      `SELECT COALESCE(SUM(tr.entry_fee), 0) as actual_revenue
+       FROM tournaments t
+       LEFT JOIN tournament_registrations tr ON t.id = tr.tournament_id
+       WHERE t.organizer_id = ? AND tr.payment_status = 'completed'`,
+      [userId],
+    )
+
+    const tournamentData = (tournamentStats as any[])[0]
+    const participantData = (participantStats as any[])[0]
+    const revenueData = (revenueStats as any[])[0]
+
+    return {
+      total_tournaments: tournamentData.total_tournaments || 0,
+      active_tournaments: tournamentData.active_tournaments || 0,
+      completed_tournaments: tournamentData.completed_tournaments || 0,
+      total_participants: participantData.total_participants || 0,
+      actual_revenue: revenueData.actual_revenue || 0,
+      potential_revenue: tournamentData.potential_revenue || 0,
+    }
+  })
+}
+
+export async function getAdminStats() {
+  return withConnection(async (connection) => {
+    // Get platform-wide stats
+    const [userStats] = await connection.execute(
+      `SELECT 
+        COUNT(*) as total_users,
+        COUNT(CASE WHEN is_active = 1 THEN 1 END) as active_users,
+        COUNT(CASE WHEN role = 'player' THEN 1 END) as total_players,
+        COUNT(CASE WHEN role = 'organizer' THEN 1 END) as total_organizers
+       FROM users`,
+    )
+
+    const [tournamentStats] = await connection.execute(
+      `SELECT 
+        COUNT(*) as total_tournaments,
+        COUNT(CASE WHEN status = 'ongoing' THEN 1 END) as active_tournaments,
+        COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_tournaments
+       FROM tournaments`,
+    )
+
+    const [revenueStats] = await connection.execute(
+      `SELECT 
+        COALESCE(SUM(entry_fee), 0) as total_revenue,
+        COALESCE(SUM(CASE WHEN MONTH(created_at) = MONTH(CURRENT_DATE()) THEN entry_fee ELSE 0 END), 0) as monthly_revenue
+       FROM tournament_registrations 
+       WHERE payment_status = 'completed'`,
+    )
+
+    const [disputeStats] = await connection.execute(
+      `SELECT COUNT(*) as pending_disputes
+       FROM disputes 
+       WHERE status = 'pending'`,
+    )
+
+    const userData = (userStats as any[])[0]
+    const tournamentData = (tournamentStats as any[])[0]
+    const revenueData = (revenueStats as any[])[0]
+    const disputeData = (disputeStats as any[])[0]
+
+    return {
+      total_users: userData.total_users || 0,
+      active_users: userData.active_users || 0,
+      total_players: userData.total_players || 0,
+      total_organizers: userData.total_organizers || 0,
+      total_tournaments: tournamentData.total_tournaments || 0,
+      active_tournaments: tournamentData.active_tournaments || 0,
+      completed_tournaments: tournamentData.completed_tournaments || 0,
+      total_revenue: revenueData.total_revenue || 0,
+      monthly_revenue: revenueData.monthly_revenue || 0,
+      pending_disputes: disputeData.pending_disputes || 0,
+    }
+  })
+}
+
+// Get recent activity for dashboard
+export async function getRecentActivity(userId: number, role: string, limit = 10) {
+  return withConnection(async (connection) => {
+    let query = ""
+    let params: any[] = []
+
+    if (role === "admin") {
+      // Admin sees all platform activity
+      query = `
+        SELECT 'user_registration' as type, u.name as description, u.created_at as timestamp
+        FROM users u
+        WHERE u.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        UNION ALL
+        SELECT 'tournament_created' as type, CONCAT('Tournament "', t.name, '" created') as description, t.created_at as timestamp
+        FROM tournaments t
+        WHERE t.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        UNION ALL
+        SELECT 'payment_processed' as type, CONCAT('Payment of KSh ', tr.entry_fee, ' processed') as description, tr.created_at as timestamp
+        FROM tournament_registrations tr
+        WHERE tr.payment_status = 'completed' AND tr.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        ORDER BY timestamp DESC
+        LIMIT ?
+      `
+      params = [limit]
+    } else if (role === "organizer") {
+      // Organizer sees their tournament activity
+      query = `
+        SELECT 'tournament_registration' as type, CONCAT(u.name, ' joined "', t.name, '"') as description, tr.created_at as timestamp
+        FROM tournament_registrations tr
+        JOIN tournaments t ON tr.tournament_id = t.id
+        JOIN users u ON tr.user_id = u.id
+        WHERE t.organizer_id = ? AND tr.payment_status = 'completed'
+        UNION ALL
+        SELECT 'match_completed' as type, CONCAT('Match completed in "', t.name, '"') as description, m.updated_at as timestamp
+        FROM matches m
+        JOIN tournaments t ON m.tournament_id = t.id
+        WHERE t.organizer_id = ? AND m.status = 'completed'
+        ORDER BY timestamp DESC
+        LIMIT ?
+      `
+      params = [userId, userId, limit]
+    } else {
+      // Player sees their activity
+      query = `
+        SELECT 'tournament_joined' as type, CONCAT('Joined "', t.name, '"') as description, tr.created_at as timestamp
+        FROM tournament_registrations tr
+        JOIN tournaments t ON tr.tournament_id = t.id
+        WHERE tr.user_id = ? AND tr.payment_status = 'completed'
+        UNION ALL
+        SELECT 'match_result' as type, 
+               CASE WHEN m.winner_id = ? THEN 'Won match' ELSE 'Lost match' END as description,
+               m.updated_at as timestamp
+        FROM matches m
+        WHERE (m.player1_id = ? OR m.player2_id = ?) AND m.status = 'completed'
+        ORDER BY timestamp DESC
+        LIMIT ?
+      `
+      params = [userId, userId, userId, userId, limit]
+    }
+
+    const [rows] = await connection.execute(query, params)
+    return rows as any[]
+  })
+}
+
 // Tournament management functions with enhanced error handling
 export async function getTournaments(
   filters: {
@@ -219,12 +438,14 @@ export async function getTournaments(
     search?: string
     limit?: number
     offset?: number
+    organizer_id?: number
   } = {},
 ) {
   return withConnection(async (connection) => {
     let query = `
       SELECT t.*, u.name as organizer_name,
-             COUNT(tr.id) as current_players
+             COUNT(tr.id) as current_players,
+             (t.entry_fee * COUNT(tr.id)) as current_prize_pool
       FROM tournaments t
       LEFT JOIN users u ON t.organizer_id = u.id
       LEFT JOIN tournament_registrations tr ON t.id = tr.tournament_id 
@@ -233,6 +454,11 @@ export async function getTournaments(
     `
 
     const params: any[] = []
+
+    if (filters.organizer_id) {
+      query += " AND t.organizer_id = ?"
+      params.push(filters.organizer_id)
+    }
 
     if (filters.status && filters.status !== "all") {
       query += " AND t.status = ?"

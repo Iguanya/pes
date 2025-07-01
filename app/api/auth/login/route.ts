@@ -9,122 +9,53 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
 
     // Validate input
-    const validationResult = loginSchema.safeParse(body)
-    if (!validationResult.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Validation failed",
-          details: validationResult.error.errors,
-        },
-        { status: 400 },
-      )
-    }
-
-    const { email, password } = validationResult.data
+    const validatedData = loginSchema.parse(body)
+    const { email, password } = validatedData
 
     // Get user from database
     const user = await getUserByEmail(email)
     if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid email or password",
-        },
-        { status: 401 },
-      )
+      return NextResponse.json({ success: false, error: "Invalid email or password" }, { status: 401 })
     }
 
     // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash)
-    if (!isPasswordValid) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid email or password",
-        },
-        { status: 401 },
-      )
-    }
-
-    // Check if user account is active
-    if (!user.is_active) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Account is deactivated. Please contact support.",
-        },
-        { status: 403 },
-      )
+    const isValidPassword = await bcrypt.compare(password, user.password_hash)
+    if (!isValidPassword) {
+      return NextResponse.json({ success: false, error: "Invalid email or password" }, { status: 401 })
     }
 
     // Generate JWT token
-    const token = generateToken({
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      gamertag: user.gamertag,
-      name: user.name,
+    const token = generateToken(user)
+
+    // Set HTTP-only cookie
+    const response = NextResponse.json({
+      success: true,
+      message: "Login successful",
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        gamertag: user.gamertag,
+        role: user.role,
+      },
+      token,
     })
 
-    // Return success response
-    const response = NextResponse.json(
-      {
-        success: true,
-        message: "Login successful",
-        data: {
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            phone: user.phone,
-            gamertag: user.gamertag,
-            role: user.role,
-            profile_image: user.profile_image,
-            created_at: user.created_at,
-          },
-          token,
-        },
-      },
-      { status: 200 },
-    )
-
-    // Set HTTP-only cookie with JWT token
     response.cookies.set("auth-token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60, // 7 days
-      path: "/",
     })
 
     return response
   } catch (error) {
     console.error("Login error:", error)
 
-    // Handle specific database errors
-    if (error instanceof Error) {
-      if (
-        error.message.includes("Database connection failed") ||
-        error.message.includes("server may be unreachable") ||
-        error.message.includes("ECONNREFUSED")
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Service temporarily unavailable. Please check your database connection.",
-          },
-          { status: 503 },
-        )
-      }
+    if (error instanceof Error && error.name === "ZodError") {
+      return NextResponse.json({ success: false, error: "Invalid input data" }, { status: 400 })
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Login failed. Please try again.",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ success: false, error: "Login failed" }, { status: 500 })
   }
 }

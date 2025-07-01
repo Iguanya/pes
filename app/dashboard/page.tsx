@@ -20,59 +20,93 @@ interface User {
   gamertag: string
 }
 
-interface Tournament {
-  id: number
-  name: string
-  status: string
-  current_players: number
-  max_players: number
-  entry_fee: number
-  prize_pool: number
+interface DashboardStats {
+  // Player stats
+  tournaments_joined?: number
+  active_tournaments?: number
+  total_matches?: number
+  wins?: number
+  win_rate?: number
+  total_earnings?: number
+  total_spent?: number
+
+  // Organizer stats
+  total_tournaments?: number
+  completed_tournaments?: number
+  total_participants?: number
+  actual_revenue?: number
+  potential_revenue?: number
+
+  // Admin stats
+  total_users?: number
+  active_users?: number
+  total_players?: number
+  total_organizers?: number
+  total_revenue?: number
+  monthly_revenue?: number
+  pending_disputes?: number
 }
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
-  const [tournaments, setTournaments] = useState<Tournament[]>([])
+  const [stats, setStats] = useState<any | null>(null)
+  const [activity, setActivity] = useState<any[]>([])
+  const [tournaments, setTournaments] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [stats, setStats] = useState({
-    tournaments: 0,
-    matches: 0,
-    earnings: 0,
-    winRate: 0,
-  })
   const router = useRouter()
 
   useEffect(() => {
-    const userData = localStorage.getItem("user")
-    if (!userData) {
-      router.push("/auth/login")
-      return
-    }
-    setUser(JSON.parse(userData))
     loadDashboardData()
-  }, [router])
+  }, [])
 
   const loadDashboardData = async () => {
     try {
-      // Load tournaments
+      // Get current user
+      const userResponse = await fetch("/api/auth/me")
+      if (!userResponse.ok) {
+        router.push("/auth/login")
+        return
+      }
+      const userData = await userResponse.json()
+      setUser(userData.user)
+
+      // Get dashboard stats
+      const statsResponse = await fetch("/api/dashboard/stats")
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json()
+        setStats(statsData.data)
+      }
+
+      // Get recent activity
+      const activityResponse = await fetch("/api/dashboard/activity?limit=5")
+      if (activityResponse.ok) {
+        const activityData = await activityResponse.json()
+        setActivity(activityData.data)
+      }
+
+      // Get tournaments based on role
       const tournamentsResponse = await fetch("/api/tournaments?limit=5")
       if (tournamentsResponse.ok) {
         const tournamentsData = await tournamentsResponse.json()
         setTournaments(tournamentsData.data || [])
       }
-
-      // Mock stats - in production, fetch from API
-      setStats({
-        tournaments: 3,
-        matches: 24,
-        earnings: 2500,
-        winRate: 67,
-      })
     } catch (error) {
       console.error("Failed to load dashboard data:", error)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const formatTimeAgo = (timestamp: string) => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
+
+    if (diffInHours < 1) return "Just now"
+    if (diffInHours < 24) return `${diffInHours}h ago`
+    const diffInDays = Math.floor(diffInHours / 24)
+    if (diffInDays < 7) return `${diffInDays}d ago`
+    return date.toLocaleDateString()
   }
 
   if (isLoading) {
@@ -86,11 +120,28 @@ export default function DashboardPage() {
     )
   }
 
-  if (!user) {
-    return null
+  if (!user || !stats) {
+    return (
+      <div className="min-h-screen">
+        <Navbar />
+        <div className="container mx-auto px-4 py-8">
+          <EmptyState
+            icon={Award}
+            title="Unable to load dashboard"
+            description="There was an error loading your dashboard data. Please try again."
+            action={{
+              label: "Retry",
+              onClick: () => window.location.reload(),
+            }}
+          />
+        </div>
+      </div>
+    )
   }
 
+  const isAdmin = user.role === "admin" || user.role === "manager"
   const isOrganizer = user.role === "organizer"
+  const isPlayer = user.role === "player"
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -99,66 +150,167 @@ export default function DashboardPage() {
       <div className="container mx-auto px-4 py-8">
         <PageHeader
           title={`Welcome back, ${user.name}!`}
-          description={`Your ${user.role} dashboard - Track your progress and manage your tournaments`}
+          description={`Your ${user.role} dashboard - Track your progress and manage your activities`}
         >
-          <Badge variant={isOrganizer ? "default" : "secondary"} className="capitalize">
+          <Badge variant={isAdmin ? "destructive" : isOrganizer ? "default" : "secondary"} className="capitalize">
             {user.role}
           </Badge>
         </PageHeader>
 
         {/* Stats Cards */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {isOrganizer ? "Active Tournaments" : "Tournaments Joined"}
-              </CardTitle>
-              <Trophy className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.tournaments}</div>
-              <p className="text-xs text-muted-foreground">+1 from last month</p>
-            </CardContent>
-          </Card>
+          {isAdmin && (
+            <>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.total_users?.toLocaleString() || 0}</div>
+                  <p className="text-xs text-muted-foreground">{stats.active_users || 0} active users</p>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {isOrganizer ? "Total Participants" : "Matches Played"}
-              </CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{isOrganizer ? "127" : stats.matches}</div>
-              <p className="text-xs text-muted-foreground">+12% from last month</p>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">KSh {(stats.total_revenue || 0).toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">
+                    KSh {(stats.monthly_revenue || 0).toLocaleString()} this month
+                  </p>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{isOrganizer ? "Revenue" : "Earnings"}</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">KSh {isOrganizer ? "45,230" : stats.earnings.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">+8% from last month</p>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Active Tournaments</CardTitle>
+                  <Trophy className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.active_tournaments || 0}</div>
+                  <p className="text-xs text-muted-foreground">{stats.total_tournaments || 0} total tournaments</p>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{isOrganizer ? "Success Rate" : "Win Rate"}</CardTitle>
-              {isOrganizer ? (
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <Target className="h-4 w-4 text-muted-foreground" />
-              )}
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{isOrganizer ? "98%" : `${stats.winRate}%`}</div>
-              <p className="text-xs text-muted-foreground">Last 30 days</p>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Pending Disputes</CardTitle>
+                  <Award className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.pending_disputes || 0}</div>
+                  <p className="text-xs text-muted-foreground">Require attention</p>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {isOrganizer && (
+            <>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">My Tournaments</CardTitle>
+                  <Trophy className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.total_tournaments || 0}</div>
+                  <p className="text-xs text-muted-foreground">{stats.active_tournaments || 0} currently active</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Participants</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.total_participants || 0}</div>
+                  <p className="text-xs text-muted-foreground">Across all tournaments</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">KSh {(stats.actual_revenue || 0).toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">From entry fees</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {stats.total_tournaments
+                      ? Math.round(((stats.completed_tournaments || 0) / stats.total_tournaments) * 100)
+                      : 0}
+                    %
+                  </div>
+                  <p className="text-xs text-muted-foreground">Tournaments completed</p>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {isPlayer && (
+            <>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Tournaments Joined</CardTitle>
+                  <Trophy className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.tournaments_joined || 0}</div>
+                  <p className="text-xs text-muted-foreground">{stats.active_tournaments || 0} currently active</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Matches Played</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.total_matches || 0}</div>
+                  <p className="text-xs text-muted-foreground">{stats.wins || 0} wins</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Earnings</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">KSh {(stats.total_earnings || 0).toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Spent: KSh {(stats.total_spent || 0).toLocaleString()}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Win Rate</CardTitle>
+                  <Target className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.win_rate || 0}%</div>
+                  <p className="text-xs text-muted-foreground">Overall performance</p>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
@@ -167,11 +319,38 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
               <CardDescription>
-                {isOrganizer ? "Manage your tournaments" : "Join tournaments and track progress"}
+                {isAdmin
+                  ? "Platform management tools"
+                  : isOrganizer
+                    ? "Tournament management"
+                    : "Join tournaments and track progress"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {isOrganizer ? (
+              {isAdmin && (
+                <>
+                  <Button className="w-full justify-start" asChild>
+                    <Link href="/admin/users">
+                      <Users className="mr-2 h-4 w-4" />
+                      Manage Users
+                    </Link>
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start bg-transparent" asChild>
+                    <Link href="/admin/tournaments">
+                      <Trophy className="mr-2 h-4 w-4" />
+                      Manage Tournaments
+                    </Link>
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start bg-transparent" asChild>
+                    <Link href="/admin/analytics">
+                      <TrendingUp className="mr-2 h-4 w-4" />
+                      View Analytics
+                    </Link>
+                  </Button>
+                </>
+              )}
+
+              {isOrganizer && (
                 <>
                   <Button className="w-full justify-start" asChild>
                     <Link href="/tournaments/create">
@@ -192,7 +371,9 @@ export default function DashboardPage() {
                     </Link>
                   </Button>
                 </>
-              ) : (
+              )}
+
+              {isPlayer && (
                 <>
                   <Button className="w-full justify-start" asChild>
                     <Link href="/tournaments">
@@ -221,38 +402,28 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Your latest tournament activity</CardDescription>
+              <CardDescription>Your latest platform activity</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">
-                      {isOrganizer ? "Weekend Cup created" : "Registered for Weekend Cup"}
-                    </p>
-                    <p className="text-xs text-gray-500">2 hours ago</p>
-                  </div>
+              {activity.length > 0 ? (
+                <div className="space-y-4">
+                  {activity.map((item, index) => (
+                    <div key={index} className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{item.description}</p>
+                        <p className="text-xs text-gray-500">{formatTimeAgo(item.timestamp)}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">
-                      {isOrganizer ? "Payout processed for Champions League" : "Won match vs PlayerX"}
-                    </p>
-                    <p className="text-xs text-gray-500">1 day ago</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">
-                      {isOrganizer ? "New participant joined" : "Match result submitted"}
-                    </p>
-                    <p className="text-xs text-gray-500">2 days ago</p>
-                  </div>
-                </div>
-              </div>
+              ) : (
+                <EmptyState
+                  icon={Award}
+                  title="No recent activity"
+                  description="Your recent activities will appear here"
+                />
+              )}
             </CardContent>
           </Card>
 
@@ -277,7 +448,7 @@ export default function DashboardPage() {
         {/* Active Tournaments */}
         <Card className="mt-8">
           <CardHeader>
-            <CardTitle>{isOrganizer ? "Your Tournaments" : "Active Tournaments"}</CardTitle>
+            <CardTitle>{isOrganizer ? "Your Tournaments" : "Available Tournaments"}</CardTitle>
             <CardDescription>
               {isOrganizer ? "Tournaments you're organizing" : "Tournaments you can join"}
             </CardDescription>
@@ -299,7 +470,9 @@ export default function DashboardPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium">Prize Pool</p>
-                      <p className="text-lg font-bold text-green-600">KSh {tournament.prize_pool.toLocaleString()}</p>
+                      <p className="text-lg font-bold text-green-600">
+                        KSh {(tournament.current_prize_pool || 0).toLocaleString()}
+                      </p>
                     </div>
                   </div>
                 ))}

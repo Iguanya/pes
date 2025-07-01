@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { testConnection, getConnectionStatus } from "@/lib/database"
-import { isEmailServiceAvailable } from "@/lib/email"
-import { isSMSServiceAvailable } from "@/lib/sms"
+import { isEmailConfigured } from "@/lib/email"
+import { isSMSConfigured } from "@/lib/sms"
 
 export async function GET() {
   try {
@@ -9,23 +9,23 @@ export async function GET() {
     const dbConnected = await testConnection()
     const dbStatus = getConnectionStatus()
 
-    // Check service availability
-    const emailAvailable = isEmailServiceAvailable()
-    const smsAvailable = isSMSServiceAvailable()
+    // Check service configurations
+    const emailConfigured = isEmailConfigured()
+    const smsConfigured = isSMSConfigured()
 
     // Determine overall status
-    let overallStatus = "ok"
+    let status = "ok"
     if (!dbConnected) {
-      overallStatus = dbStatus === "build-time" ? "build-time" : "degraded"
+      status = "degraded"
     }
 
     const response = {
-      status: overallStatus,
+      status,
       timestamp: new Date().toISOString(),
       services: {
-        database: dbConnected ? "connected" : dbStatus === "build-time" ? "build-time" : "failed",
-        email: emailAvailable ? "configured" : "not configured",
-        sms: smsAvailable ? "configured" : "not configured",
+        database: dbConnected ? "connected" : "failed",
+        email: emailConfigured ? "configured" : "not configured",
+        sms: smsConfigured ? "configured" : "not configured",
       },
       database: {
         host: process.env.DB_HOST || "not set",
@@ -34,31 +34,22 @@ export async function GET() {
         connectionStatus: dbStatus,
       },
       environment: {
-        nodeEnv: process.env.NODE_ENV || "development",
+        nodeEnv: process.env.NODE_ENV,
         hasDbConfig: !!(process.env.DB_HOST && process.env.DB_USER && process.env.DB_PASSWORD),
-        hasEmailConfig: !!(process.env.RESEND_API_KEY && process.env.FROM_EMAIL),
+        hasEmailConfig: !!process.env.RESEND_API_KEY,
         hasSmsConfig: !!(process.env.AFRICASTALKING_USERNAME && process.env.AFRICASTALKING_API_KEY),
-        hasJwtSecret: !!process.env.JWT_SECRET,
         appUrl: process.env.NEXT_PUBLIC_APP_URL || "not set",
       },
-      version: "1.0.0",
     }
 
-    return NextResponse.json(response, {
-      status: overallStatus === "ok" ? 200 : overallStatus === "build-time" ? 200 : 503,
-    })
+    return NextResponse.json(response)
   } catch (error) {
     console.error("Health check error:", error)
     return NextResponse.json(
       {
         status: "error",
         timestamp: new Date().toISOString(),
-        error: "Health check failed",
-        services: {
-          database: "error",
-          email: "unknown",
-          sms: "unknown",
-        },
+        error: error instanceof Error ? error.message : "Health check failed",
       },
       { status: 500 },
     )
