@@ -1,0 +1,24 @@
+{
+  "env": {
+    "DB_HOST": "@db_host",
+    "DB_USER": "@db_user",
+    "DB_PASSWORD": "@db_password",
+    "DB_NAME": "@db_name",
+    "DB_PORT": "@db_port",
+    "JWT_SECRET": "@jwt_secret",
+    "RESEND_API_KEY": "@resend_api_key",
+    "FROM_EMAIL": "@from_email",
+    "AFRICASTALKING_USERNAME": "@africastalking_username",
+    "AFRICASTALKING_API_KEY": "@africastalking_api_key",
+    "CLOUDINARY_CLOUD_NAME": "@cloudinary_cloud_name",
+    "CLOUDINARY_API_KEY": "@cloudinary_api_key",
+    "CLOUDINARY_API_SECRET": "@cloudinary_api_secret"
+  },
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "regions": ["iad1"],
+  "framework": "nextjs"
+}
