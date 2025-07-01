@@ -1,88 +1,111 @@
 import AfricasTalking from "africastalking"
 
-// Initialize Africa's Talking only if credentials are available
-let sms: any = null
-let smsServiceAvailable = false
+// Initialize Africa's Talking client
+let africasTalking: any = null
 
-try {
-  const username = process.env.AFRICASTALKING_USERNAME
-  const apiKey = process.env.AFRICASTALKING_API_KEY
-
-  if (username && apiKey && username.trim() !== "" && apiKey.trim() !== "") {
-    const africasTalking = AfricasTalking({
-      apiKey: apiKey,
-      username: username,
-    })
-    sms = africasTalking.SMS
-    smsServiceAvailable = true
-    console.log("✅ SMS service (Africa's Talking) initialized successfully")
-  } else {
-    console.log("⚠️ SMS service not configured - Africa's Talking credentials not found")
-  }
-} catch (error) {
-  console.error("❌ Failed to initialize SMS service:", error)
-  smsServiceAvailable = false
+if (process.env.AFRICASTALKING_USERNAME && process.env.AFRICASTALKING_API_KEY) {
+  africasTalking = AfricasTalking({
+    apiKey: process.env.AFRICASTALKING_API_KEY,
+    username: process.env.AFRICASTALKING_USERNAME,
+  })
 }
 
-export interface SMSData {
+// Check if SMS service is available
+export function isSMSServiceAvailable(): boolean {
+  return africasTalking !== null && !!process.env.AFRICASTALKING_USERNAME && !!process.env.AFRICASTALKING_API_KEY
+}
+
+// Send SMS function
+export async function sendSMS({
+  to,
+  message,
+}: {
   to: string
   message: string
-  from?: string
-}
-
-export async function sendSMS(smsData: SMSData): Promise<boolean> {
-  if (!smsServiceAvailable || !sms) {
-    console.log("⚠️ SMS service not available, skipping SMS send")
+}): Promise<boolean> {
+  if (!isSMSServiceAvailable()) {
+    console.log("⚠️ SMS service not configured, skipping SMS send")
     return false
   }
 
   try {
-    // Ensure phone number is in international format
-    let phoneNumber = smsData.to
-    if (phoneNumber.startsWith("0")) {
-      phoneNumber = "+254" + phoneNumber.substring(1)
-    } else if (!phoneNumber.startsWith("+")) {
-      phoneNumber = "+254" + phoneNumber
+    // Format phone number for Africa's Talking
+    let formattedPhone = to.replace(/\s/g, "")
+    if (formattedPhone.startsWith("0")) {
+      formattedPhone = "+254" + formattedPhone.substring(1)
+    } else if (formattedPhone.startsWith("254")) {
+      formattedPhone = "+" + formattedPhone
+    } else if (!formattedPhone.startsWith("+254")) {
+      formattedPhone = "+254" + formattedPhone
     }
 
-    const options = {
-      to: [phoneNumber],
-      message: smsData.message,
-      from: smsData.from || "PES_TOURNAMENT",
-    }
+    const sms = africasTalking.SMS
+    const result = await sms.send({
+      to: [formattedPhone],
+      message,
+      from: process.env.AFRICASTALKING_SHORTCODE || undefined,
+    })
 
-    const result = await sms.send(options)
-    console.log("✅ SMS sent successfully:", result)
-    return true
+    if (result.SMSMessageData.Recipients[0].status === "Success") {
+      console.log("✅ SMS sent successfully:", result.SMSMessageData.Recipients[0].messageId)
+      return true
+    } else {
+      console.error("❌ SMS send failed:", result.SMSMessageData.Recipients[0].status)
+      return false
+    }
   } catch (error) {
-    console.error("❌ Failed to send SMS:", error)
+    console.error("❌ SMS send error:", error)
     return false
   }
 }
 
-export async function sendWelcomeSMS(phoneNumber: string, userName: string): Promise<boolean> {
-  const message = `Welcome to PES Tournament Platform, ${userName}! Start competing in tournaments and track your progress. Visit our platform to get started.`
-
-  return await sendSMS({
-    to: phoneNumber,
-    message: message,
-  })
+// Welcome SMS template
+export function getWelcomeSMSTemplate(name: string, role: string): string {
+  const appName = process.env.NEXT_PUBLIC_APP_NAME || "PES Tournament Platform"
+  return `Welcome to ${appName}, ${name}! Your ${role} account is ready. Start competing in PES tournaments across Kenya. Visit ${process.env.NEXT_PUBLIC_APP_URL || "pestournament.ke"} to get started.`
 }
 
-export async function sendTournamentSMS(
-  phoneNumber: string,
-  userName: string,
+// Send welcome SMS
+export async function sendWelcomeSMS(phone: string, name: string, role = "player"): Promise<boolean> {
+  const message = getWelcomeSMSTemplate(name, role)
+  return sendSMS({ to: phone, message })
+}
+
+// Tournament notification SMS template
+export function getTournamentNotificationSMS(name: string, tournamentName: string, action: string): string {
+  const messages = {
+    registered: `Hi ${name}! You've successfully registered for "${tournamentName}". Good luck!`,
+    started: `Hi ${name}! Tournament "${tournamentName}" has started. Check your matches now.`,
+    winner: `Congratulations ${name}! You won "${tournamentName}". Prize details will be sent soon.`,
+    reminder: `Hi ${name}! Tournament "${tournamentName}" starts in 1 hour. Be ready!`,
+  }
+
+  return messages[action as keyof typeof messages] || `Hi ${name}! Update on tournament "${tournamentName}".`
+}
+
+// Send tournament notification SMS
+export async function sendTournamentNotificationSMS(
+  phone: string,
+  name: string,
   tournamentName: string,
-  message: string,
+  action: string,
 ): Promise<boolean> {
-  const smsMessage = `Hi ${userName}, Tournament Update: ${tournamentName} - ${message}`
-
-  return await sendSMS({
-    to: phoneNumber,
-    message: smsMessage,
-  })
+  const message = getTournamentNotificationSMS(name, tournamentName, action)
+  return sendSMS({ to: phone, message })
 }
 
-export function isSMSServiceAvailable(): boolean {
-  return smsServiceAvailable
+// Payment confirmation SMS template
+export function getPaymentConfirmationSMS(name: string, amount: number, tournamentName: string): string {
+  return `Hi ${name}! Payment of KES ${amount} confirmed for "${tournamentName}". You're all set to compete!`
+}
+
+// Send payment confirmation SMS
+export async function sendPaymentConfirmationSMS(
+  phone: string,
+  name: string,
+  amount: number,
+  tournamentName: string,
+): Promise<boolean> {
+  const message = getPaymentConfirmationSMS(name, amount, tournamentName)
+  return sendSMS({ to: phone, message })
 }

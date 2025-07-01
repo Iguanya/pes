@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
-import jwt from "jsonwebtoken"
 import { getUserByEmail } from "@/lib/database"
+import { generateToken } from "@/lib/auth"
 import { loginSchema } from "@/lib/validation"
 
 export async function POST(request: NextRequest) {
@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
     if (!validationResult.success) {
       return NextResponse.json(
         {
+          success: false,
           error: "Validation failed",
           details: validationResult.error.errors,
         },
@@ -25,50 +26,64 @@ export async function POST(request: NextRequest) {
     // Get user from database
     const user = await getUserByEmail(email)
     if (!user) {
-      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid email or password",
+        },
+        { status: 401 },
+      )
     }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password_hash)
     if (!isPasswordValid) {
-      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid email or password",
+        },
+        { status: 401 },
+      )
     }
 
     // Check if user account is active
     if (!user.is_active) {
-      return NextResponse.json({ error: "Account is deactivated" }, { status: 403 })
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Account is deactivated. Please contact support.",
+        },
+        { status: 403 },
+      )
     }
 
     // Generate JWT token
-    const jwtSecret = process.env.JWT_SECRET
-    if (!jwtSecret) {
-      console.error("JWT_SECRET is not configured")
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
-    }
-
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-      },
-      jwtSecret,
-      { expiresIn: "7d" },
-    )
+    const token = generateToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      gamertag: user.gamertag,
+      name: user.name,
+    })
 
     // Return success response
     const response = NextResponse.json(
       {
+        success: true,
         message: "Login successful",
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          phone: user.phone,
-          gamertag: user.gamertag,
-          role: user.role,
-          profile_image: user.profile_image,
-          created_at: user.created_at,
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            phone: user.phone,
+            gamertag: user.gamertag,
+            role: user.role,
+            profile_image: user.profile_image,
+            created_at: user.created_at,
+          },
+          token,
         },
       },
       { status: 200 },
@@ -95,12 +110,21 @@ export async function POST(request: NextRequest) {
         error.message.includes("ECONNREFUSED")
       ) {
         return NextResponse.json(
-          { error: "Service temporarily unavailable. Please check your database connection." },
+          {
+            success: false,
+            error: "Service temporarily unavailable. Please check your database connection.",
+          },
           { status: 503 },
         )
       }
     }
 
-    return NextResponse.json({ error: "Login failed. Please try again." }, { status: 500 })
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Login failed. Please try again.",
+      },
+      { status: 500 },
+    )
   }
 }

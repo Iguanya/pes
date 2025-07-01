@@ -1,73 +1,93 @@
 import { z } from "zod"
 
+// User registration schema
 export const registerSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-      "Password must contain at least one lowercase letter, one uppercase letter, and one number",
-    ),
-  name: z.string().min(2, "Name must be at least 2 characters").max(100, "Name must be less than 100 characters"),
-  phone: z
-    .string()
-    .regex(/^(\+254|0)[17]\d{8}$/, "Invalid Kenyan phone number format")
-    .transform((phone) => {
-      // Normalize phone number to start with +254
-      if (phone.startsWith("0")) {
-        return "+254" + phone.substring(1)
-      }
-      return phone
-    }),
+  name: z.string().min(2, "Name must be at least 2 characters").max(100, "Name too long"),
+  email: z.string().email("Invalid email address").toLowerCase(),
+  phone: z.string().regex(/^(\+254|254|0)?[17]\d{8}$/, "Invalid Kenyan phone number"),
   gamertag: z
     .string()
     .min(3, "Gamertag must be at least 3 characters")
-    .max(20, "Gamertag must be less than 20 characters")
+    .max(20, "Gamertag too long")
     .regex(/^[a-zA-Z0-9_-]+$/, "Gamertag can only contain letters, numbers, underscores, and hyphens"),
-  role: z.enum(["player", "organizer"], {
-    errorMap: () => ({ message: "Role must be either 'player' or 'organizer'" }),
-  }),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Password must contain at least one lowercase, uppercase, and number"),
+  role: z.enum(["player", "organizer"]).default("player"),
 })
 
+// User login schema
 export const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  email: z.string().email("Invalid email address").toLowerCase(),
   password: z.string().min(1, "Password is required"),
 })
 
+// Tournament creation schema
 export const tournamentSchema = z.object({
-  name: z
-    .string()
-    .min(3, "Tournament name must be at least 3 characters")
-    .max(100, "Tournament name must be less than 100 characters"),
-  description: z.string().max(500, "Description must be less than 500 characters").optional(),
-  format: z.enum(["single_elimination", "double_elimination", "round_robin", "swiss"], {
-    errorMap: () => ({ message: "Invalid tournament format" }),
-  }),
-  max_players: z
-    .number()
-    .int()
-    .min(4, "Tournament must have at least 4 players")
-    .max(128, "Tournament cannot have more than 128 players"),
-  entry_fee: z.number().min(0, "Entry fee cannot be negative").max(10000, "Entry fee cannot exceed 10,000 KES"),
-  registration_deadline: z.string().datetime("Invalid registration deadline format"),
-  start_date: z.string().datetime("Invalid start date format"),
-  rules: z.string().max(1000, "Rules must be less than 1000 characters").optional(),
+  name: z.string().min(3, "Tournament name must be at least 3 characters").max(100, "Name too long"),
+  description: z.string().max(1000, "Description too long").optional(),
+  format: z.enum(["single-elimination", "double-elimination", "round-robin", "swiss"]),
+  max_players: z.number().min(4, "Minimum 4 players").max(128, "Maximum 128 players"),
+  entry_fee: z.number().min(0, "Entry fee cannot be negative").max(10000, "Entry fee too high"),
+  registration_deadline: z.string().datetime("Invalid registration deadline"),
+  start_date: z.string().datetime("Invalid start date"),
+  rules: z.string().max(2000, "Rules too long").optional(),
   require_screenshots: z.boolean().default(true),
   allow_disputes: z.boolean().default(true),
 })
 
+// Match result schema
 export const matchResultSchema = z.object({
-  match_id: z.number().int().positive("Invalid match ID"),
-  winner_id: z.number().int().positive("Invalid winner ID"),
-  loser_id: z.number().int().positive("Invalid loser ID"),
-  winner_score: z.number().int().min(0, "Winner score cannot be negative"),
-  loser_score: z.number().int().min(0, "Loser score cannot be negative"),
+  tournament_id: z.number().positive("Invalid tournament ID"),
+  player1_id: z.number().positive("Invalid player 1 ID"),
+  player2_id: z.number().positive("Invalid player 2 ID"),
+  winner_id: z.number().positive("Invalid winner ID"),
+  player1_score: z.number().min(0, "Score cannot be negative"),
+  player2_score: z.number().min(0, "Score cannot be negative"),
   screenshot_url: z.string().url("Invalid screenshot URL").optional(),
-  notes: z.string().max(500, "Notes must be less than 500 characters").optional(),
+  notes: z.string().max(500, "Notes too long").optional(),
 })
 
-export type RegisterInput = z.infer<typeof registerSchema>
-export type LoginInput = z.infer<typeof loginSchema>
-export type TournamentInput = z.infer<typeof tournamentSchema>
-export type MatchResultInput = z.infer<typeof matchResultSchema>
+// User profile update schema
+export const profileUpdateSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters").max(100, "Name too long").optional(),
+  phone: z
+    .string()
+    .regex(/^(\+254|254|0)?[17]\d{8}$/, "Invalid Kenyan phone number")
+    .optional(),
+  gamertag: z
+    .string()
+    .min(3, "Gamertag must be at least 3 characters")
+    .max(20, "Gamertag too long")
+    .regex(/^[a-zA-Z0-9_-]+$/, "Gamertag can only contain letters, numbers, underscores, and hyphens")
+    .optional(),
+  profile_image: z.string().url("Invalid profile image URL").optional(),
+})
+
+// Admin user management schema
+export const adminUserUpdateSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters").max(100, "Name too long").optional(),
+  email: z.string().email("Invalid email address").toLowerCase().optional(),
+  phone: z
+    .string()
+    .regex(/^(\+254|254|0)?[17]\d{8}$/, "Invalid Kenyan phone number")
+    .optional(),
+  role: z.enum(["player", "organizer", "manager", "admin"]).optional(),
+  is_active: z.boolean().optional(),
+})
+
+// Password change schema
+export const passwordChangeSchema = z
+  .object({
+    current_password: z.string().min(1, "Current password is required"),
+    new_password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Password must contain at least one lowercase, uppercase, and number"),
+    confirm_password: z.string().min(1, "Password confirmation is required"),
+  })
+  .refine((data) => data.new_password === data.confirm_password, {
+    message: "Passwords don't match",
+    path: ["confirm_password"],
+  })

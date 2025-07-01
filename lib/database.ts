@@ -18,10 +18,10 @@ const dbConfig = {
   connectionLimit: 5,
   waitForConnections: true,
   queueLimit: 0,
-  acquireTimeout: 10000,
-  timeout: 10000,
+  acquireTimeout: 15000,
+  timeout: 15000,
   reconnect: true,
-  connectTimeout: 10000,
+  connectTimeout: 15000,
 }
 
 console.log("🔧 Final Database Config:")
@@ -93,6 +93,9 @@ export async function testConnection(retries = 3): Promise<boolean> {
             console.error("🔍 Host not found - Check database host address")
           } else if (error.message.includes("Access denied")) {
             console.error("🔐 Access denied - Check database credentials")
+          } else if (error.message.includes("ER_HOST_NOT_PRIVILEGED")) {
+            console.error("🚫 Host not allowed - MySQL user needs permission for external connections")
+            console.error("💡 Fix: Grant privileges to user from '%' or specific Vercel IPs")
           }
         }
       } else {
@@ -119,7 +122,7 @@ function ensureConnection() {
     throw new Error("Database connection pool not available")
   }
   if (connectionStatus === "failed") {
-    throw new Error("Database connection failed - server may be unreachable")
+    throw new Error("Database connection failed - server may be unreachable or host not allowed")
   }
 }
 
