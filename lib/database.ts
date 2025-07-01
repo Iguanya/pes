@@ -24,11 +24,11 @@ const dbConfig = {
   connectTimeout: 15000,
 }
 
-console.log("🔧 Final Database Config:")
-console.log("Host:", dbConfig.host)
-console.log("User:", dbConfig.user)
-console.log("Database:", dbConfig.database)
-console.log("Port:", dbConfig.port)
+// console.log("🔧 Final Database Config:")
+// console.log("Host:", dbConfig.host)
+// console.log("User:", dbConfig.user)
+// console.log("Database:", dbConfig.database)
+// console.log("Port:", dbConfig.port)
 
 // Create connection pool with error handling
 let pool: mysql.Pool | null = null
@@ -222,7 +222,7 @@ export async function getUserStats(userId: number) {
         COALESCE(SUM(tr.entry_fee), 0) as total_spent
        FROM tournament_registrations tr
        LEFT JOIN tournaments t ON tr.tournament_id = t.id
-       WHERE tr.user_id = ? AND tr.payment_status = 'completed'`,
+       WHERE tr.player_id = ? AND tr.payment_status = 'completed'`,
       [userId],
     )
 
@@ -390,42 +390,58 @@ export async function getRecentActivity(userId: number, role: string, limit = 10
       `
       params = [limit]
     } else if (role === "organizer") {
-      // Organizer sees their tournament activity
+      // Organizer sees their tournament activity // --- ORGANIZER (fixed user_id → player_id) ---
       query = `
-        SELECT 'tournament_registration' as type, CONCAT(u.name, ' joined "', t.name, '"') as description, tr.created_at as timestamp
-        FROM tournament_registrations tr
-        JOIN tournaments t ON tr.tournament_id = t.id
-        JOIN users u ON tr.user_id = u.id
-        WHERE t.organizer_id = ? AND tr.payment_status = 'completed'
+        SELECT 'tournament_registration' AS type,
+               CONCAT(u.name, ' joined "', t.name, '"') AS description,
+               tr.created_at AS timestamp
+        FROM   tournament_registrations tr
+        JOIN   tournaments t ON tr.tournament_id = t.id
+        JOIN   users u       ON tr.player_id = u.id
+        WHERE  t.organizer_id = ? AND tr.payment_status = 'completed'
         UNION ALL
-        SELECT 'match_completed' as type, CONCAT('Match completed in "', t.name, '"') as description, m.updated_at as timestamp
-        FROM matches m
-        JOIN tournaments t ON m.tournament_id = t.id
-        WHERE t.organizer_id = ? AND m.status = 'completed'
+        SELECT 'match_completed' AS type,
+               CONCAT('Match completed in "', t.name, '"') AS description,
+               m.updated_at AS timestamp
+        FROM   matches m
+        JOIN   tournaments t ON m.tournament_id = t.id
+        WHERE  t.organizer_id = ? AND m.status = 'completed'
         ORDER BY timestamp DESC
         LIMIT ?
-      `
-      params = [userId, userId, limit]
+      `;
+      params = [userId, userId, limit];
     } else {
       // Player sees their activity
       query = `
-        SELECT 'tournament_joined' as type, CONCAT('Joined "', t.name, '"') as description, tr.created_at as timestamp
-        FROM tournament_registrations tr
-        JOIN tournaments t ON tr.tournament_id = t.id
-        WHERE tr.user_id = ? AND tr.payment_status = 'completed'
-        UNION ALL
-        SELECT 'match_result' as type, 
-               CASE WHEN m.winner_id = ? THEN 'Won match' ELSE 'Lost match' END as description,
-               m.updated_at as timestamp
-        FROM matches m
-        WHERE (m.player1_id = ? OR m.player2_id = ?) AND m.status = 'completed'
+        SELECT * FROM (
+          SELECT 'tournament_joined' as type,
+                 CONCAT('Joined "', t.name, '"') as description,
+                 tr.created_at as timestamp
+          FROM tournament_registrations tr
+          JOIN tournaments t ON tr.tournament_id = t.id
+          WHERE tr.player_id = ? AND tr.payment_status = 'completed'
+
+          UNION ALL
+
+          SELECT 'match_result' as type, 
+                 CASE WHEN m.winner_id = ? THEN 'Won match' ELSE 'Lost match' END as description,
+                 m.updated_at as timestamp
+          FROM matches m
+          WHERE (m.player1_id = ? OR m.player2_id = ?) AND m.status = 'completed'
+        ) AS combined
         ORDER BY timestamp DESC
         LIMIT ?
       `
+
+
       params = [userId, userId, userId, userId, limit]
+      console.log("Params:", params)
+
     }
 
     const [rows] = await connection.execute(query, params)
+    console.log("Params:", params)
+    // Should look like: [23, 23, 23, 23, 5]
     return rows as any[]
   })
 }
@@ -536,13 +552,16 @@ export async function createTournament(tournamentData: {
 }
 
 // Close pool when application shuts down
-process.on("SIGINT", async () => {
-  if (pool && typeof pool.end === "function") {
-    console.log("🔄 Closing database pool...")
-    await pool.end()
-    console.log("✅ Database pool closed")
-  }
-  process.exit(0)
-})
+if (typeof process !== "undefined" && process?.on && typeof window === "undefined") {
+  process.on("SIGINT", async () => {
+    if (pool && typeof pool.end === "function") {
+      console.log("🔄 Closing database pool...")
+      await pool.end()
+      console.log("✅ Database pool closed")
+    }
+    process.exit(0)
+  })
+}
+
 
 export default pool

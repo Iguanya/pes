@@ -27,28 +27,29 @@ export async function POST(request: NextRequest) {
     // Generate JWT token
     const token = generateToken(user)
 
-    // Set HTTP-only cookie
     const response = NextResponse.json({
       success: true,
       message: "Login successful",
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        gamertag: user.gamertag,
-        role: user.role,
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          gamertag: user.gamertag,
+          role: user.role,
+        },
       },
-      token,
     })
 
     response.cookies.set("auth-token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60, // 7 days
+      maxAge: 7 * 24 * 60 * 60,
     })
 
     return response
+
   } catch (error) {
     console.error("Login error:", error)
 

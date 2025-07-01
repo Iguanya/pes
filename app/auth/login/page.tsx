@@ -43,19 +43,13 @@ export default function LoginPage() {
       const data = await response.json()
 
       if (data.success) {
-        // Store token and user data
-        localStorage.setItem("auth-token", data.data.token)
         localStorage.setItem("user", JSON.stringify(data.data.user))
-
         setSuccess(data.message)
-
-        // Redirect to dashboard after a short delay
-        setTimeout(() => {
-          router.push("/dashboard")
-        }, 1500)
+        setTimeout(() => router.push("/dashboard"), 1500)
       } else {
         setError(data.error || "Login failed")
       }
+
     } catch (error) {
       console.error("Login error:", error)
       setError("Network error. Please check your connection and try again.")
