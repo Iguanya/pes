@@ -1,0 +1,23 @@
+{
+  "name": "PES Tournaments",
+  "short_name": "PES",
+  "description": "Join, manage, and play in competitive PES tournaments.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#22c55e",
+  "orientation": "portrait",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/icons/placeholder-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/placeholder.jpg",
+      "sizes": "512x512",
+      "type": "image/jpg"
+    }
+  ]
+}

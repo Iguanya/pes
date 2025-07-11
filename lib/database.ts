@@ -503,7 +503,7 @@ export async function getOrganizerStats(userId: number) {
 
     // Get total participants across all tournaments
     const [participantStats] = await connection.execute(
-      `SELECT COUNT(DISTINCT tr.user_id) as total_participants
+      `SELECT COUNT(DISTINCT tr.player_id) as total_participants
        FROM tournaments t
        LEFT JOIN tournament_registrations tr ON t.id = tr.tournament_id
        WHERE t.organizer_id = ? AND tr.payment_status = 'completed'`,
@@ -594,8 +594,12 @@ export async function getRecentActivity(userId: number, role: string, limit = 10
     let query = ""
     let params: any[] = []
 
+    console.log("🧠 getRecentActivity called with:")
+    console.log("   ➤ userId:", userId)
+    console.log("   ➤ role:", role)
+    console.log("   ➤ limit:", limit)
+
     if (role === "admin") {
-      // Admin sees all platform activity
       query = `
         SELECT 'user_registration' as type, u.name as description, u.created_at as timestamp
         FROM users u
@@ -609,65 +613,61 @@ export async function getRecentActivity(userId: number, role: string, limit = 10
         FROM tournament_registrations tr
         WHERE tr.payment_status = 'completed' AND tr.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
         ORDER BY timestamp DESC
-        LIMIT ?
+        LIMIT ${limit}
       `
-      params = [limit]
     } else if (role === "organizer") {
-      // Organizer sees their tournament activity // --- ORGANIZER (fixed user_id → player_id) ---
       query = `
         SELECT 'tournament_registration' AS type,
                CONCAT(u.name, ' joined "', t.name, '"') AS description,
                tr.created_at AS timestamp
-        FROM   tournament_registrations tr
-        JOIN   tournaments t ON tr.tournament_id = t.id
-        JOIN   users u       ON tr.player_id = u.id
-        WHERE  t.organizer_id = ? AND tr.payment_status = 'completed'
+        FROM tournament_registrations tr
+        JOIN tournaments t ON tr.tournament_id = t.id
+        JOIN users u ON tr.player_id = u.id
+        WHERE t.organizer_id = ${userId} AND tr.payment_status = 'completed'
         UNION ALL
         SELECT 'match_completed' AS type,
                CONCAT('Match completed in "', t.name, '"') AS description,
                m.updated_at AS timestamp
-        FROM   matches m
-        JOIN   tournaments t ON m.tournament_id = t.id
-        WHERE  t.organizer_id = ? AND m.status = 'completed'
+        FROM matches m
+        JOIN tournaments t ON m.tournament_id = t.id
+        WHERE t.organizer_id = ${userId} AND m.status = 'completed'
         ORDER BY timestamp DESC
-        LIMIT ?
+        LIMIT ${limit}
       `
-      params = [userId, userId, limit]
     } else {
-      // Player sees their activity
       query = `
         SELECT * FROM (
-          SELECT 'tournament_joined' as type,
-                 CONCAT('Joined "', t.name, '"') as description,
-                 tr.created_at as timestamp
+          SELECT 'tournament_joined' AS type,
+                 CONCAT('Joined "', t.name, '"') AS description,
+                 tr.created_at AS timestamp
           FROM tournament_registrations tr
           JOIN tournaments t ON tr.tournament_id = t.id
-          WHERE tr.player_id = ? AND tr.payment_status = 'completed'
+          WHERE tr.player_id = ${userId} AND tr.payment_status = 'completed'
 
           UNION ALL
 
-          SELECT 'match_result' as type, 
-                 CASE WHEN m.winner_id = ? THEN 'Won match' ELSE 'Lost match' END as description,
-                 m.updated_at as timestamp
+          SELECT 'match_result' AS type,
+                 CASE WHEN m.winner_id = ${userId} THEN 'Won match' ELSE 'Lost match' END AS description,
+                 m.updated_at AS timestamp
           FROM matches m
-          WHERE (m.player1_id = ? OR m.player2_id = ?) AND m.status = 'completed'
+          WHERE (m.player1_id = ${userId} OR m.player2_id = ${userId}) AND m.status = 'completed'
         ) AS combined
         ORDER BY timestamp DESC
-        LIMIT ?
+        LIMIT ${limit}
       `
-
-      params = [userId, userId, userId, userId, limit]
-      console.log("Params:", params)
     }
 
+    // console.log("📝 Final SQL Query:\n", query)
+    // console.log("📦 Bound Parameters:", params)
+
     const [rows] = await connection.execute(query, params)
-    console.log("Params:", params)
-    // Should look like: [23, 23, 23, 23, 5]
+    console.log("✅ Query executed successfully. Rows fetched:", rows.length)
+
     return rows as any[]
   })
 }
 
-// Tournament management functions with enhanced error handling
+
 export async function getTournaments(
   filters: {
     status?: string
@@ -676,7 +676,7 @@ export async function getTournaments(
     limit?: number
     offset?: number
     organizer_id?: number
-  } = {},
+  } = {}
 ) {
   return withConnection(async (connection) => {
     let query = `
@@ -685,8 +685,8 @@ export async function getTournaments(
              (t.entry_fee * COUNT(tr.id)) as current_prize_pool
       FROM tournaments t
       LEFT JOIN users u ON t.organizer_id = u.id
-      LEFT JOIN tournament_registrations tr ON t.id = tr.tournament_id 
-                                            AND tr.payment_status = 'completed'
+      LEFT JOIN tournament_registrations tr 
+        ON t.id = tr.tournament_id AND tr.payment_status = 'completed'
       WHERE t.status != 'cancelled'
     `
 
@@ -714,20 +714,62 @@ export async function getTournaments(
 
     query += " GROUP BY t.id, u.name ORDER BY t.created_at DESC"
 
-    if (filters.limit) {
-      query += " LIMIT ?"
-      params.push(filters.limit)
-    }
+    // ✅ Inline LIMIT and OFFSET after validation
+    const limit = Number.isInteger(filters.limit) && filters.limit! > 0 ? filters.limit : 10
+    const offset = Number.isInteger(filters.offset) && filters.offset! >= 0 ? filters.offset : 0
 
-    if (filters.offset) {
-      query += " OFFSET ?"
-      params.push(filters.offset)
-    }
+    query += ` LIMIT ${limit} OFFSET ${offset}`
+
+    // console.log("📝 Final Tournament Query:\n", query)
+    // console.log("📦 Params:", params)
 
     const [rows] = await connection.execute(query, params)
     return rows as any[]
   })
 }
+
+
+
+export async function getTournamentById(id: string) {
+  return withConnection(async (connection) => {
+    const [rows]: any[] = await connection.execute(
+      `
+      SELECT 
+        t.*, 
+        u.name AS organizer_name,
+        COUNT(tr.id) AS current_players,
+        (t.entry_fee * COUNT(tr.id)) AS current_prize_pool
+      FROM tournaments t
+      LEFT JOIN users u ON t.organizer_id = u.id
+      LEFT JOIN tournament_registrations tr 
+        ON t.id = tr.tournament_id AND tr.payment_status = 'completed'
+      WHERE t.id = ?
+      GROUP BY t.id, u.name
+      `,
+      [id]
+    )
+
+    if (!rows.length) return null
+
+    const tournament = rows[0]
+
+    // Parse the rules column as an array (assuming it's stored as a JSON/text string)
+    let rules: string[] = []
+    try {
+      rules = JSON.parse(tournament.rules)
+      if (!Array.isArray(rules)) throw new Error()
+    } catch {
+      console.warn("⚠️ 'rules' field is not valid JSON, returning empty array")
+      rules = []
+    }
+
+    return {
+      ...tournament,
+      rules,
+    }
+  })
+}
+
 
 export async function createTournament(tournamentData: {
   name: string

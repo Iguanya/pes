@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,38 +9,40 @@ import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Trophy, Users, DollarSign, Calendar, ArrowLeft, Smartphone } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 
 export default function RegisterTournamentPage({ params }: { params: { id: string } }) {
+  const [tournament, setTournament] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [showMpesaModal, setShowMpesaModal] = useState(false)
+  const [fetching, setFetching] = useState(true)
+  const [error, setError] = useState("")
   const router = useRouter()
 
-  // Mock tournament data
-  const tournament = {
-    id: params.id,
-    name: "Weekend Warriors Cup",
-    description: "Fast-paced weekend tournament for casual players",
-    format: "Single Elimination",
-    maxPlayers: 16,
-    currentPlayers: 12,
-    entryFee: 500,
-    prizePool: 8000,
-    status: "Registration Open",
-    startDate: "2024-01-15T10:00",
-    registrationDeadline: "2024-01-14T23:59",
-    organizer: "PES Kenya Official",
-    rules: [
-      "Match duration: 6 minutes per half",
-      "Difficulty: Professional",
-      "No custom teams allowed",
-      "Screenshot required for each match result",
-      "Disputes must be raised within 30 minutes",
-    ],
-  }
+  useEffect(() => {
+    const fetchTournament = async () => {
+      try {
+        const res = await fetch(`/api/tournaments/${params.id}`)
+        if (!res.ok) throw new Error("Tournament not found")
+        const json = await res.json()
 
-  const handleRegister = async () => {
+        if (!json.success || !json.data) {
+          throw new Error("Invalid data structure from API")
+        }
+
+        setTournament(json.data)
+      } catch (err: any) {
+        console.error("❌ Failed to fetch tournament:", err)
+        setError("Unable to load tournament.")
+      } finally {
+        setFetching(false)
+      }
+    }
+
+    fetchTournament()
+  }, [params.id])
+
+  const handleRegister = () => {
     if (!agreedToTerms) {
       alert("Please agree to the terms and conditions")
       return
@@ -51,18 +54,29 @@ export default function RegisterTournamentPage({ params }: { params: { id: strin
   const handleMpesaPayment = async () => {
     setIsLoading(true)
 
-    // Simulate M-Pesa payment process
-    setTimeout(() => {
+    try {
+      // Later, you'd verify payment here via your M-Pesa API
+      await new Promise((resolve) => setTimeout(resolve, 3000))
+      alert("Payment successful! You are now registered.")
+      router.push("/dashboard")
+    } catch (err) {
+      console.error("Payment failed:", err)
+    } finally {
       setIsLoading(false)
       setShowMpesaModal(false)
-      alert("Payment successful! You are now registered for the tournament.")
-      router.push("/dashboard")
-    }, 3000)
+    }
+  }
+
+  if (fetching) {
+    return <div className="p-10 text-center">Loading tournament...</div>
+  }
+
+  if (error || !tournament) {
+    return <div className="p-10 text-center text-red-600">{error || "Tournament not found."}</div>
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white border-b">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
           <Button variant="ghost" size="sm" asChild>
@@ -80,7 +94,6 @@ export default function RegisterTournamentPage({ params }: { params: { id: strin
 
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Tournament Details */}
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
@@ -102,13 +115,12 @@ export default function RegisterTournamentPage({ params }: { params: { id: strin
                         <p className="text-sm text-gray-600">{tournament.format}</p>
                       </div>
                     </div>
-
                     <div className="flex items-center gap-3">
                       <Users className="h-5 w-5 text-gray-500" />
                       <div>
                         <p className="font-medium">Players</p>
                         <p className="text-sm text-gray-600">
-                          {tournament.currentPlayers}/{tournament.maxPlayers} registered
+                          {tournament.current_players}/{tournament.max_players} registered
                         </p>
                       </div>
                     </div>
@@ -119,15 +131,14 @@ export default function RegisterTournamentPage({ params }: { params: { id: strin
                       <Calendar className="h-5 w-5 text-gray-500" />
                       <div>
                         <p className="font-medium">Start Date</p>
-                        <p className="text-sm text-gray-600">{new Date(tournament.startDate).toLocaleString()}</p>
+                        <p className="text-sm text-gray-600">{new Date(tournament.start_date).toLocaleString()}</p>
                       </div>
                     </div>
-
                     <div className="flex items-center gap-3">
                       <DollarSign className="h-5 w-5 text-gray-500" />
                       <div>
                         <p className="font-medium">Entry Fee</p>
-                        <p className="text-sm text-gray-600">KSh {tournament.entryFee.toLocaleString()}</p>
+                        <p className="text-sm text-gray-600">KSh {Number(tournament.entry_fee).toLocaleString()}</p>
                       </div>
                     </div>
                   </div>
@@ -138,7 +149,7 @@ export default function RegisterTournamentPage({ params }: { params: { id: strin
                 <div>
                   <h3 className="font-semibold mb-3">Tournament Rules</h3>
                   <ul className="space-y-2">
-                    {tournament.rules.map((rule, index) => (
+                    {tournament.rules.map((rule: string, index: number) => (
                       <li key={index} className="flex items-start gap-2 text-sm">
                         <div className="w-1.5 h-1.5 bg-green-600 rounded-full mt-2 flex-shrink-0"></div>
                         <span>{rule}</span>
@@ -151,13 +162,10 @@ export default function RegisterTournamentPage({ params }: { params: { id: strin
                   <Checkbox
                     id="terms"
                     checked={agreedToTerms}
-                    onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+                    onCheckedChange={(checked) => setAgreedToTerms(!!checked)}
                   />
-                  <label
-                    htmlFor="terms"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    I agree to the tournament rules and terms of service
+                  <label htmlFor="terms" className="text-sm font-medium">
+                    I agree to the tournament rules and terms
                   </label>
                 </div>
               </CardContent>
@@ -174,16 +182,12 @@ export default function RegisterTournamentPage({ params }: { params: { id: strin
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-sm">Entry Fee</span>
-                    <span className="font-medium">KSh {tournament.entryFee.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">Processing Fee</span>
-                    <span className="font-medium">KSh 0</span>
+                    <span className="font-medium">KSh {Number(tournament.entry_fee).toLocaleString()}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
-                    <span>KSh {tournament.entryFee.toLocaleString()}</span>
+                    <span>KSh {Number(tournament.entry_fee).toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -191,10 +195,9 @@ export default function RegisterTournamentPage({ params }: { params: { id: strin
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-green-800">Prize Pool</span>
                     <span className="text-lg font-bold text-green-600">
-                      KSh {tournament.prizePool.toLocaleString()}
+                      KSh {Number(tournament.current_prize_pool).toLocaleString()}
                     </span>
                   </div>
-                  <p className="text-xs text-green-700">Winner takes 60% • Runner-up takes 30% • 3rd place takes 10%</p>
                 </div>
 
                 <Button className="w-full" onClick={handleRegister} disabled={!agreedToTerms}>
@@ -202,7 +205,7 @@ export default function RegisterTournamentPage({ params }: { params: { id: strin
                 </Button>
 
                 <p className="text-xs text-gray-500 text-center">
-                  Registration closes on {new Date(tournament.registrationDeadline).toLocaleString()}
+                  Registration closes on {new Date(tournament.registration_deadline).toLocaleString()}
                 </p>
               </CardContent>
             </Card>
@@ -212,15 +215,14 @@ export default function RegisterTournamentPage({ params }: { params: { id: strin
                 <CardTitle className="text-sm">Organizer</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="font-medium">{tournament.organizer}</p>
-                <p className="text-sm text-gray-600 mt-1">Verified Tournament Organizer</p>
+                <p className="font-medium">{tournament.organizer_name}</p>
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
 
-      {/* M-Pesa Payment Modal */}
+      {/* M-Pesa Modal */}
       {showMpesaModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <Card className="w-full max-w-md">
@@ -234,7 +236,9 @@ export default function RegisterTournamentPage({ params }: { params: { id: strin
             <CardContent className="space-y-4">
               <div className="bg-green-50 p-4 rounded-lg text-center">
                 <p className="text-sm text-green-800 mb-2">Amount to Pay</p>
-                <p className="text-2xl font-bold text-green-600">KSh {tournament.entryFee.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-green-600">
+                  KSh {Number(tournament.entry_fee).toLocaleString()}
+                </p>
               </div>
 
               <div className="space-y-3 text-sm">
@@ -246,35 +250,19 @@ export default function RegisterTournamentPage({ params }: { params: { id: strin
                   <span>Account Number:</span>
                   <span className="font-mono font-bold">TOURNAMENT{tournament.id}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Amount:</span>
-                  <span className="font-bold">KSh {tournament.entryFee}</span>
-                </div>
               </div>
 
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <p className="text-xs text-blue-800">
-                  <strong>Instructions:</strong>
-                  <br />
-                  1. Go to M-Pesa menu
-                  <br />
-                  2. Select "Lipa na M-Pesa"
-                  <br />
-                  3. Select "Pay Bill"
-                  <br />
-                  4. Enter the details above
-                  <br />
-                  5. Enter your M-Pesa PIN
-                </p>
+              <div className="bg-blue-50 p-3 rounded-lg text-xs text-blue-800">
+                1. Go to M-Pesa menu<br />
+                2. Lipa na M-Pesa → Pay Bill<br />
+                3. Enter Paybill 174379<br />
+                4. Enter Account: TOURNAMENT{tournament.id}<br />
+                5. Enter amount: KSh {tournament.entry_fee}<br />
+                6. Enter PIN to complete
               </div>
 
               <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1 bg-transparent"
-                  onClick={() => setShowMpesaModal(false)}
-                  disabled={isLoading}
-                >
+                <Button variant="outline" className="flex-1" onClick={() => setShowMpesaModal(false)} disabled={isLoading}>
                   Cancel
                 </Button>
                 <Button className="flex-1" onClick={handleMpesaPayment} disabled={isLoading}>

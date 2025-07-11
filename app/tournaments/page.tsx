@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -9,76 +9,66 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Trophy, Users, DollarSign, Calendar, Search, Filter } from "lucide-react"
 import Link from "next/link"
 
-const tournaments = [
-  {
-    id: 1,
-    name: "Weekend Warriors Cup",
-    description: "Fast-paced weekend tournament for casual players",
-    format: "Single Elimination",
-    maxPlayers: 16,
-    currentPlayers: 12,
-    entryFee: 500,
-    prizePool: 8000,
-    status: "Registration Open",
-    startDate: "2024-01-15T10:00",
-    registrationDeadline: "2024-01-14T23:59",
-    organizer: "PES Kenya Official",
-  },
-  {
-    id: 2,
-    name: "Champions League",
-    description: "Premium tournament for experienced players",
-    format: "Double Elimination",
-    maxPlayers: 32,
-    currentPlayers: 28,
-    entryFee: 1000,
-    prizePool: 32000,
-    status: "Registration Closing Soon",
-    startDate: "2024-01-20T14:00",
-    registrationDeadline: "2024-01-19T20:00",
-    organizer: "Elite Gaming",
-  },
-  {
-    id: 3,
-    name: "Monthly Masters",
-    description: "High-stakes monthly championship",
-    format: "Swiss System",
-    maxPlayers: 64,
-    currentPlayers: 45,
-    entryFee: 2000,
-    prizePool: 128000,
-    status: "Registration Open",
-    startDate: "2024-01-25T12:00",
-    registrationDeadline: "2024-01-24T18:00",
-    organizer: "Pro Tournaments",
-  },
-  {
-    id: 4,
-    name: "Beginner's Cup",
-    description: "Perfect for new players to get started",
-    format: "Round Robin",
-    maxPlayers: 8,
-    currentPlayers: 6,
-    entryFee: 200,
-    prizePool: 1600,
-    status: "Registration Open",
-    startDate: "2024-01-18T16:00",
-    registrationDeadline: "2024-01-17T23:59",
-    organizer: "Newbie Gaming",
-  },
-]
+type Tournament = {
+  id: number
+  name: string
+  description: string
+  format: string
+  maxPlayers: number
+  currentPlayers: number
+  entryFee: number
+  prizePool: number
+  status: string
+  startDate: string
+  registrationDeadline: string
+  organizer: string
+}
 
 export default function TournamentsPage() {
+  const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [formatFilter, setFormatFilter] = useState("all")
+
+  useEffect(() => {
+    const fetchTournaments = async () => {
+      try {
+        const res = await fetch("/api/tournaments")
+        const json = await res.json()
+        if (json.success) {
+          setTournaments(json.data)
+        }
+      } catch (err) {
+        console.error("Failed to load tournaments", err)
+      }
+    }
+    fetchTournaments()
+  }, [])
+
+  const formatDisplayMap: Record<string, string> = {
+    "knockout": "Single Elimination",
+    "double-elimination": "Double Elimination",
+    "round-robin": "Round Robin",
+    "swiss": "Swiss System",
+  }
+
+  const statusDisplayMap: Record<string, string> = {
+    "registration": "Registration Open",
+    "ongoing": "Ongoing",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+  }
 
   const filteredTournaments = tournaments.filter((tournament) => {
     const matchesSearch =
       tournament.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tournament.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === "all" || tournament.status.toLowerCase().includes(statusFilter.toLowerCase())
-    const matchesFormat = formatFilter === "all" || tournament.format === formatFilter
+    const matchesStatus =
+      statusFilter === "all" ||
+      tournament.status.toLowerCase().includes(statusFilter.toLowerCase())
+    const matchesFormat =
+      formatFilter === "all" ||
+      formatDisplayMap[tournament.format]?.toLowerCase() === formatFilter.toLowerCase()
 
     return matchesSearch && matchesStatus && matchesFormat
   })
@@ -173,7 +163,9 @@ export default function TournamentsPage() {
                     <CardTitle className="text-lg">{tournament.name}</CardTitle>
                     <CardDescription className="mt-1">{tournament.description}</CardDescription>
                   </div>
-                  <Badge className={getStatusColor(tournament.status)}>{tournament.status}</Badge>
+                  <Badge className={getStatusColor(statusDisplayMap[tournament.status] || tournament.status)}>
+                    {statusDisplayMap[tournament.status] || tournament.status}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -186,15 +178,17 @@ export default function TournamentsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Trophy className="h-4 w-4 text-gray-500" />
-                    <span>{tournament.format}</span>
+                    <span>{formatDisplayMap[tournament.format]}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-gray-500" />
-                    <span>KSh {tournament.entryFee.toLocaleString()}</span>
+                    <span>
+                    KSh {typeof tournament.entryFee === "number" ? tournament.entryFee.toLocaleString() : "0"}
+                  </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-gray-500" />
-                    <span>{new Date(tournament.startDate).toLocaleDateString()}</span>
+                    <span>{new Date(tournament.start_date).toLocaleDateString()}</span>
                   </div>
                 </div>
 
@@ -202,14 +196,14 @@ export default function TournamentsPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-green-800">Prize Pool</span>
                     <span className="text-lg font-bold text-green-600">
-                      KSh {tournament.prizePool.toLocaleString()}
+                      KSh {typeof tournament.prize_pool === "number" ? tournament.prize_pool.toLocaleString() : "0"}
                     </span>
                   </div>
                 </div>
 
                 <div className="text-xs text-gray-500">
                   <p>Organized by {tournament.organizer}</p>
-                  <p>Registration closes: {new Date(tournament.registrationDeadline).toLocaleString()}</p>
+                  <p>Registration closes: Registration closes: {new Date(tournament.registration_deadline).toLocaleString()}</p>
                 </div>
 
                 <div className="flex gap-2">
