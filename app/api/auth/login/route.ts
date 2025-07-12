@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
           gamertag: user.gamertag,
           role: user.role,
         },
+        token,
       },
     })
 

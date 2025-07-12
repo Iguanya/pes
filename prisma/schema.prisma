@@ -1,15 +1,69 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../lib/generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
+}
+
+enum Role {
+  player
+  organizer
+  manager
+  admin
+}
+
+model User {
+  id            Int         @id @default(autoincrement())
+  email         String      @unique
+  password_hash String
+  name          String
+  phone         String
+  gamertag      String      @unique
+  role          Role
+  is_active     Boolean     @default(true)  // 👈 ADD THIS
+   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tournaments   Tournament[] @relation("OrganizerTournaments")
+  settings      UserSettings?
+}
+
+model UserSettings {
+  id                    Int      @id @default(autoincrement())
+  user                  User     @relation(fields: [user_id], references: [id])
+  user_id               Int      @unique
+  email_tournaments     Boolean  @default(true)
+  email_matches         Boolean  @default(true)
+  email_marketing       Boolean  @default(false)
+  sms_tournaments       Boolean  @default(true)
+  sms_matches           Boolean  @default(false)
+  push_notifications    Boolean  @default(false)
+  language              String   @default("en")
+  timezone              String   @default("Africa/Nairobi")
+  theme                 String   @default("system")
+  currency              String   @default("KES")
+  profile_visibility    String   @default("public")
+  show_stats            Boolean  @default(true)
+  show_earnings         Boolean  @default(false)
+  allow_friend_requests Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt @default(now())
+}
+
+model Tournament {
+  id                    Int         @id @default(autoincrement())
+  name                 String
+  description          String?
+  organizerId          Int
+  organizer            User     @relation("OrganizerTournaments", fields: [organizerId], references: [id])
+  format               String
+  maxPlayers           Int
+  entryFee             Float
+  registrationDeadline DateTime
+  startDate            DateTime
+  status               String   @default("registration")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }

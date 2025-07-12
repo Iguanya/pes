@@ -35,11 +35,44 @@ export default function CreateTournamentPage() {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
-      router.push("/dashboard")
-    }, 1000)
+    try {
+      // Get current user to get organizer_id
+      const userRes = await fetch("/api/auth/me");
+      if (!userRes.ok) throw new Error("Unable to fetch user");
+      const userData = await userRes.json();
+      if (!userData.user || userData.user.role !== "organizer") throw new Error("Only organizers can create tournaments");
+      const organizer_id = userData.user.id;
+
+      const res = await fetch("/api/tournaments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          description: formData.description,
+          format: formData.format,
+          max_players: formData.maxPlayers,
+          entry_fee: formData.entryFee,
+          prize_distribution: formData.prizeDistribution,
+          start_date: formData.startDate,
+          registration_deadline: formData.registrationDeadline,
+          rules: formData.rules,
+          require_screenshots: formData.requireScreenshots,
+          allow_disputes: formData.allowDisputes,
+          organizer_id,
+        }),
+      });
+      if (res.ok) {
+        setIsLoading(false);
+        router.push("/dashboard");
+      } else {
+        const errData = await res.json();
+        alert(errData.error || "Failed to create tournament");
+        setIsLoading(false);
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to create tournament");
+      setIsLoading(false);
+    }
   }
 
   return (

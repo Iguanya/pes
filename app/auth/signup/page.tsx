@@ -41,8 +41,8 @@ export default function SignupPage() {
       return
     }
 
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters long")
+    if (formData.password.length < 8) {
+      setError("Password must be at least 8 characters long")
       setIsLoading(false)
       return
     }
@@ -73,8 +73,8 @@ export default function SignupPage() {
 
       if (data.success) {
         // Store token and user data
-        localStorage.setItem("auth-token", data.data.token)
-        localStorage.setItem("user", JSON.stringify(data.data.user))
+        localStorage.setItem("auth-token", data.token)
+        localStorage.setItem("user", JSON.stringify(data.user))
 
         setSuccess(data.message)
 
