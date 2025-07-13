@@ -41,14 +41,14 @@ CREATE TABLE tournaments (
 CREATE TABLE tournament_registrations (
     id INT PRIMARY KEY AUTO_INCREMENT,
     tournament_id INT NOT NULL,
-    player_id INT NOT NULL,
+    user_id INT NOT NULL,
     registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     payment_status ENUM('pending', 'completed', 'failed', 'refunded') DEFAULT 'pending',
     payment_reference VARCHAR(255),
     mpesa_transaction_id VARCHAR(255),
     FOREIGN KEY (tournament_id) REFERENCES tournaments(id),
-    FOREIGN KEY (player_id) REFERENCES users(id),
-    UNIQUE KEY unique_registration (tournament_id, player_id)
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    UNIQUE KEY unique_registration (tournament_id, user_id)
 );
 
 -- Matches table

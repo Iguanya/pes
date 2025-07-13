@@ -55,11 +55,22 @@ export default function RegisterTournamentPage({ params }: { params: { id: strin
     setIsLoading(true)
 
     try {
-      // Later, you'd verify payment here via your M-Pesa API
+      // Simulate payment delay
       await new Promise((resolve) => setTimeout(resolve, 3000))
-      alert("Payment successful! You are now registered.")
-      router.push("/dashboard")
+      // Register the player for the tournament
+      const res = await fetch(`/api/tournaments/${params.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        alert("Payment successful! You are now registered.")
+        router.push("/dashboard")
+      } else {
+        alert(data.error || "Registration failed. Please try again.")
+      }
     } catch (err) {
+      alert("Payment or registration failed. Please try again.")
       console.error("Payment failed:", err)
     } finally {
       setIsLoading(false)

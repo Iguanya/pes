@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Navbar } from "@/components/layout/navbar"
 import { Footer } from "@/components/layout/footer"
+import pesBackground from "@/public/pesBackground.jpg"
 import { Trophy, Users, DollarSign, Star, Shield } from "lucide-react"
 import Link from "next/link"
 
@@ -63,45 +64,59 @@ export default function HomePage() {
       <Navbar />
 
       {/* Hero Section */}
-      <section className="relative py-20 px-4 bg-gradient-to-br from-green-50 via-blue-50 to-purple-50">
-        <div className="container mx-auto text-center">
-          <Badge className="mb-4" variant="secondary">
-            🎮 Kenya's #1 PES Tournament Platform
-          </Badge>
-          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-            Compete. Win.
-            <span className="text-primary block">Earn Real Money.</span>
-          </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-            Join Kenya's most competitive eFootball tournaments. Play against the best, climb the leaderboards, and win
-            cash prizes through secure mobile money payments.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Button size="lg" asChild>
-              <Link href="/auth/signup">Start Competing Now</Link>
-            </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link href="/tournaments">Browse Tournaments</Link>
-            </Button>
-          </div>
+<section className="relative mt-2 bg-gradient-to-br from-green-50 via-blue-50 to-purple-50">
+  <div className="container mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center min-h-[600px]">
+    
+    {/* Text Content */}
+    <div className="flex flex-col justify-center">
+      <Badge className="mb-4" variant="secondary">
+        🎮 Kenya's #1 PES Tournament Platform
+      </Badge>
+      <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">
+        Compete. Win.
+        <span className="text-primary block">Earn Real Money.</span>
+      </h1>
+      <p className="text-xl text-gray-600 mb-8">
+        Join Kenya's most competitive eFootball tournaments. Play against the best, climb the leaderboards, and win
+        cash prizes through secure mobile money payments.
+      </p>
+      <div className="flex flex-col sm:flex-row gap-4 mb-8">
+        <Button size="sm" asChild className="bg-green-600 hover:bg-green-700">
+          <Link href="/auth/signup">Start Competing Now</Link>
+        </Button>
+        <Button size="lg" variant="outline" asChild>
+          <Link href="/tournaments">Browse Tournaments</Link>
+        </Button>
+      </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="text-2xl md:text-3xl font-bold text-primary">{stat.value}</div>
-                <div className="text-sm text-gray-600">{stat.label}</div>
-              </div>
-            ))}
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-4 max-w-md">
+        {stats.map((stat, index) => (
+          <div key={index} className="text-left">
+            <div className="text-2xl md:text-3xl font-bold text-primary">{stat.value}</div>
+            <div className="text-sm text-gray-600">{stat.label}</div>
           </div>
-        </div>
-      </section>
+        ))}
+      </div>
+    </div>
+
+    {/* Full-height Image */}
+    <div className="w-full h-full">
+      <img
+        src={pesBackground.src}
+        alt="PES Background"
+        className="w-full h-full object-cover rounded-xl shadow-md"
+      />
+    </div>
+  </div>
+</section>
+
 
       {/* Features Section */}
-      <section className="py-20 px-4 bg-white">
+      <section className="py-8 px-4 bg-gray">
         <div className="container mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Why Choose PES Kenya?</h2>
+            <h2 className="text-3xl md:text-2xl font-bold mb-4">Why Choose PES Kenya?</h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               We've built the most advanced tournament platform in East Africa, designed specifically for Kenyan gamers.
             </p>
@@ -124,10 +139,10 @@ export default function HomePage() {
       </section>
 
       {/* How It Works */}
-      <section className="py-20 px-4 bg-gray-50">
+      <section className="py-20 px-4 bg-gray-100">
         <div className="container mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">How It Works</h2>
+            <h2 className="text-2xl md:text-2xl font-bold mb-4">How It Works</h2>
             <p className="text-xl text-gray-600">Get started in just 3 simple steps</p>
           </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ interface User {
 }
 
 interface Tournament {
+  entry_fee: ReactNode;
   id: number;
   name: string;
   description?: string;
@@ -103,11 +104,11 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      
       <Navbar />
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-4">Welcome, {user.name}!</h1>
-        <Badge className="capitalize mb-6">{user.role}</Badge>
-
+      <div className="container mx-auto px-4 py-8 bg-cover bg-center">
+        <h1 className="text-2xl font-bold mb-4 text-center">Welcome, {user.name}!</h1>
+        
         {/* Player Stats Section */}
         {user.role === "player" && (
           <div className="mb-8">
@@ -237,12 +238,12 @@ export default function DashboardPage() {
                       <p className="mb-2 text-gray-600">
                         {tournament.current_players}/{tournament.maxPlayers} players
                       </p>
-                      <p className="mb-2">Entry Fee: KSh {tournament.entryFee}</p>
-                      <Badge className="capitalize mb-2">{tournament.status}</Badge>
+                      <p className="mb-2">Entry Fee: KSh {tournament.entry_fee}</p>
                       <div className="mt-4 flex gap-2">
-                        <Button asChild variant="secondary">
+                        <Button asChild className="bg-green-600 hover:bg-green-700 text-white">
                           <Link href={`/tournaments/${tournament.id}/register`}>Register</Link>
                         </Button>
+                        
                         <Button asChild>
                           <Link href={`/tournaments/${tournament.id}`}>View Details</Link>
                         </Button>

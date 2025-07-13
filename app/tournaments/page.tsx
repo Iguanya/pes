@@ -1,22 +1,28 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { ReactNode, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Navbar } from "@/components/layout/navbar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Trophy, Users, DollarSign, Calendar, Search, Filter } from "lucide-react"
 import Link from "next/link"
 
 type Tournament = {
+  registration_deadline: string | number | Date
+  current_prize_pool: any
+  start_date: string | number | Date
+  current_players: ReactNode
+  max_players: ReactNode
   id: number
   name: string
   description: string
   format: string
   maxPlayers: number
   currentPlayers: number
-  entryFee: number
+  entry_fee: number
   prizePool: number
   status: string
   startDate: string
@@ -37,6 +43,7 @@ export default function TournamentsPage() {
         const json = await res.json()
         if (json.success) {
           setTournaments(json.data)
+          console.log(json);
         }
       } catch (err) {
         console.error("Failed to load tournaments", err)
@@ -91,22 +98,13 @@ export default function TournamentsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Trophy className="h-8 w-8 text-green-600" />
-            <h1 className="text-2xl font-bold">Tournaments</h1>
-          </div>
-          <Button asChild>
-            <Link href="/dashboard">Dashboard</Link>
-          </Button>
-        </div>
-      </header>
+      <Navbar/>
+     
 
       <div className="container mx-auto px-4 py-8">
         {/* Filters */}
         <Card className="mb-8">
-          <CardHeader>
+          <CardHeader >
             <CardTitle className="flex items-center gap-2">
               <Filter className="h-5 w-5" />
               Find Tournaments
@@ -173,7 +171,7 @@ export default function TournamentsPage() {
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-gray-500" />
                     <span>
-                      {tournament.currentPlayers}/{tournament.maxPlayers}
+                      {tournament.current_players}/{tournament.max_players}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -183,7 +181,7 @@ export default function TournamentsPage() {
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-gray-500" />
                     <span>
-                    KSh {typeof tournament.entryFee === "number" ? tournament.entryFee.toLocaleString() : "0"}
+                    KSh { tournament.entry_fee}
                   </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -196,7 +194,7 @@ export default function TournamentsPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-green-800">Prize Pool</span>
                     <span className="text-lg font-bold text-green-600">
-                      KSh {typeof tournament.prize_pool === "number" ? tournament.prize_pool.toLocaleString() : "0"}
+                      KSh { tournament.current_prize_pool}
                     </span>
                   </div>
                 </div>
@@ -207,7 +205,7 @@ export default function TournamentsPage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button className="flex-1" asChild>
+                  <Button  asChild className="bg-green-600 hover:bg-green-700 text-white">
                     <Link href={`/tournaments/${tournament.id}/register`}>Register Now</Link>
                   </Button>
                   <Button variant="outline" asChild>

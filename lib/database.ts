@@ -445,7 +445,7 @@ export async function getUserStats(userId: number) {
     COALESCE(SUM(t.entry_fee), 0) as total_spent
    FROM tournament_registrations tr
    LEFT JOIN tournaments t ON tr.tournament_id = t.id
-   WHERE tr.player_id = ? AND tr.payment_status = 'completed'`,
+   WHERE tr.user_id = ? AND tr.payment_status = 'completed'`,
   [userId],
 )
 
