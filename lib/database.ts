@@ -504,7 +504,7 @@ export async function getOrganizerStats(userId: number) {
 
     // Get total participants across all tournaments
     const [participantStats] = await connection.execute(
-      `SELECT COUNT(DISTINCT tr.player_id) as total_participants
+      `SELECT COUNT(DISTINCT tr.user_id) as total_participants
        FROM tournaments t
        LEFT JOIN tournament_registrations tr ON t.id = tr.tournament_id
        WHERE t.organizer_id = ? AND tr.payment_status = 'completed'`,
@@ -624,7 +624,7 @@ export async function getRecentActivity(userId: number, role: string, limit = 10
                tr.created_at AS timestamp
         FROM tournament_registrations tr
         JOIN tournaments t ON tr.tournament_id = t.id
-        JOIN User u ON tr.player_id = u.id
+        JOIN User u ON tr.user_id = u.id
         WHERE t.organizer_id = ${userId} AND tr.payment_status = 'completed'
         UNION ALL
         SELECT 'match_completed' AS type,
@@ -644,7 +644,7 @@ export async function getRecentActivity(userId: number, role: string, limit = 10
                  tr.created_at AS timestamp
           FROM tournament_registrations tr
           JOIN tournaments t ON tr.tournament_id = t.id
-          WHERE tr.player_id = ${userId} AND tr.payment_status = 'completed'
+          WHERE tr.user_id = ${userId} AND tr.payment_status = 'completed'
 
           UNION ALL
 
