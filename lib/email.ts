@@ -1,14 +1,30 @@
 import nodemailer from "nodemailer"
 
-const transporter = nodemailer.createTransport({
+const transporter = nodemailer.createTransporter({
   service: "gmail",
   auth: {
     user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD
-  }
+    pass: process.env.GMAIL_APP_PASSWORD,
+  },
 })
 
 const FROM_EMAIL = process.env.FROM_EMAIL || process.env.GMAIL_USER || "noreply@example.com"
+
+export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+  try {
+    await transporter.sendMail({
+      from: `"PES Tournaments" <${FROM_EMAIL}>`,
+      to,
+      subject,
+      html,
+    })
+    console.log("✅ Email sent to", to)
+    return true
+  } catch (error) {
+    console.error("❌ Email sending failed:", error)
+    return false
+  }
+}
 
 export async function sendWelcomeEmail(to: string, name: string): Promise<boolean> {
   const html = `
@@ -40,7 +56,12 @@ export async function sendWelcomeEmail(to: string, name: string): Promise<boolea
   return await sendEmail(to, "Welcome to PES Tournament Platform!", html)
 }
 
-export async function sendTournamentNotification(to: string, name: string, tournamentName: string, message: string): Promise<boolean> {
+export async function sendTournamentNotification(
+  to: string,
+  name: string,
+  tournamentName: string,
+  message: string,
+): Promise<boolean> {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h1 style="color: #2563eb;">Tournament Update</h1>
@@ -86,22 +107,6 @@ export async function sendPasswordResetEmail(to: string, name: string, resetToke
     </div>
   `
   return await sendEmail(to, "Reset Your Password - PES Tournament Platform", html)
-}
-
-async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
-  try {
-    await transporter.sendMail({
-      from: `"PES Tournaments" <${FROM_EMAIL}>`,
-      to,
-      subject,
-      html
-    })
-    console.log("✅ Email sent to", to)
-    return true
-  } catch (error) {
-    console.error("❌ Email sending failed:", error)
-    return false
-  }
 }
 
 export function isEmailConfigured(): boolean {
