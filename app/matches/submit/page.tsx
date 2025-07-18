@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -17,7 +17,10 @@ import { useRouter } from "next/navigation"
 export default function SubmitMatchResultPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [matches, setMatches] = useState<any[]>([])
+  const [activeTournaments, setActiveTournaments] = useState<any[]>([])
   const [formData, setFormData] = useState({
+    matchId: "",
     tournament: "",
     opponent: "",
     myScore: "",
@@ -25,7 +28,54 @@ export default function SubmitMatchResultPage() {
     matchNotes: "",
     resultType: "win", // win, loss, draw
   })
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [recentMatches, setRecentMatches] = useState<any[]>([])
   const router = useRouter()
+
+  useEffect(() => {
+    // Fetch user's matches
+    const fetchMatches = async () => {
+      try {
+        const res = await fetch("/api/matches/submit")
+        const json = await res.json()
+        if (json.success) {
+          setMatches(json.data)
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+    fetchMatches()
+
+    // Fetch active tournaments (all, no status filter)
+    const fetchTournaments = async () => {
+      try {
+        const res = await fetch("/api/tournaments")
+        const json = await res.json()
+        if (json.success) {
+          setActiveTournaments(json.data)
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+    fetchTournaments()
+
+    // Fetch recent match submissions
+    const fetchRecentMatches = async () => {
+      try {
+        const res = await fetch("/api/matches/submit?recent=true")
+        const json = await res.json()
+        if (json.success) {
+          setRecentMatches(json.data)
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+    fetchRecentMatches()
+  }, [])
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -37,20 +87,36 @@ export default function SubmitMatchResultPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-
-    // Simulate API call with OCR processing
-    setTimeout(() => {
+    setError(null)
+    setSuccess(null)
+    try {
+      const fd = new FormData()
+      fd.append("match_id", formData.matchId)
+      fd.append("tournament_id", formData.tournament)
+      fd.append("opponent", formData.opponent)
+      fd.append("my_score", formData.myScore)
+      fd.append("opponent_score", formData.opponentScore)
+      fd.append("match_notes", formData.matchNotes)
+      if (selectedFile) {
+        fd.append("screenshot", selectedFile)
+      }
+      const res = await fetch("/api/matches/submit", {
+        method: "POST",
+        body: fd,
+      })
+      const json = await res.json()
+      if (res.ok && json.success) {
+        setSuccess(json.message || "Match result submitted successfully!")
+        setTimeout(() => router.push("/dashboard"), 1500)
+      } else {
+        setError(json.error || "Failed to submit match result.")
+      }
+    } catch (err) {
+      setError("Failed to submit match result.")
+    } finally {
       setIsLoading(false)
-      alert("Match result submitted successfully! Your opponent will be notified to confirm.")
-      router.push("/dashboard")
-    }, 2000)
+    }
   }
-
-  const activeTournaments = [
-    { id: 1, name: "Weekend Warriors Cup", status: "Ongoing" },
-    { id: 2, name: "Champions League", status: "Ongoing" },
-    { id: 3, name: "Monthly Masters", status: "Ongoing" },
-  ]
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -78,18 +144,20 @@ export default function SubmitMatchResultPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+            
               {/* Tournament Selection */}
               <div className="space-y-2">
                 <Label htmlFor="tournament">Tournament</Label>
                 <Select
                   value={formData.tournament}
                   onValueChange={(value) => setFormData({ ...formData, tournament: value })}
+                  required
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select tournament" />
                   </SelectTrigger>
                   <SelectContent>
-                    {activeTournaments.map((tournament) => (
+                    {activeTournaments.map((tournament: any) => (
                       <SelectItem key={tournament.id} value={tournament.id.toString()}>
                         <div className="flex items-center justify-between w-full">
                           <span>{tournament.name}</span>
@@ -102,7 +170,6 @@ export default function SubmitMatchResultPage() {
                   </SelectContent>
                 </Select>
               </div>
-
               {/* Opponent */}
               <div className="space-y-2">
                 <Label htmlFor="opponent">Opponent</Label>
@@ -114,7 +181,6 @@ export default function SubmitMatchResultPage() {
                   required
                 />
               </div>
-
               {/* Match Result */}
               <div className="space-y-4">
                 <Label>Match Result</Label>
@@ -221,6 +287,10 @@ export default function SubmitMatchResultPage() {
                 />
               </div>
 
+              {/* Error/Success Messages */}
+              {error && <div className="text-red-600 text-sm">{error}</div>}
+              {success && <div className="text-green-600 text-sm">{success}</div>}
+
               {/* OCR Processing Info */}
               <div className="bg-blue-50 p-4 rounded-lg">
                 <h4 className="font-medium text-blue-900 mb-2">Automatic Verification</h4>
@@ -250,41 +320,25 @@ export default function SubmitMatchResultPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">vs PlayerX</p>
-                  <p className="text-sm text-gray-600">Weekend Warriors Cup</p>
-                  <p className="text-xs text-gray-500">2 hours ago</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold">3 - 1</p>
-                  <Badge variant="default">Confirmed</Badge>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">vs ProGamer</p>
-                  <p className="text-sm text-gray-600">Champions League</p>
-                  <p className="text-xs text-gray-500">1 day ago</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold">2 - 4</p>
-                  <Badge variant="secondary">Pending</Badge>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">vs SkillMaster</p>
-                  <p className="text-sm text-gray-600">Monthly Masters</p>
-                  <p className="text-xs text-gray-500">3 days ago</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold">1 - 1</p>
-                  <Badge variant="outline">Disputed</Badge>
-                </div>
-              </div>
+              {recentMatches.length === 0 ? (
+                <div className="text-gray-500 text-sm">No recent match submissions.</div>
+              ) : (
+                recentMatches.map((match) => (
+                  <div key={match.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">
+                        vs Player {match.player1_id === match.player2_id ? match.player1_id : (match.player1_id && match.player2_id ? `${match.player1_id === match.player2_id ? match.player1_id : match.player2_id}` : "?")}
+                      </p>
+                      <p className="text-sm text-gray-600">{match.tournament_name}</p>
+                      <p className="text-xs text-gray-500">{new Date(match.submission_time).toLocaleString()}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold">{match.player1_score} - {match.player2_score}</p>
+                      <Badge variant={match.is_confirmed ? "default" : "secondary"}>{match.is_confirmed ? "Confirmed" : "Pending"}</Badge>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

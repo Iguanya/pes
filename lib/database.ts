@@ -816,6 +816,76 @@ export async function createTournament(tournamentData: {
   })
 }
 
+// Store a new match result submission
+export async function submitMatchResult({
+  match_id,
+  submitted_by,
+  player1_score,
+  player2_score,
+  screenshot_url = null,
+  notes = null,
+  ocr_extracted_data = null,
+}: {
+  match_id: number
+  submitted_by: number
+  player1_score: number
+  player2_score: number
+  screenshot_url?: string | null
+  notes?: string | null
+  ocr_extracted_data?: any
+}) {
+  return withConnection(async (connection) => {
+    const [result] = await connection.execute(
+      `INSERT INTO match_results (
+        match_id, submitted_by, player1_score, player2_score, screenshot_url, notes, ocr_extracted_data, submission_time
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        match_id,
+        submitted_by,
+        player1_score,
+        player2_score,
+        screenshot_url,
+        notes,
+        ocr_extracted_data ? JSON.stringify(ocr_extracted_data) : null,
+      ]
+    )
+    // Return the inserted id
+    return (result as any).insertId
+  })
+}
+
+// Fetch all matches for a user (player1 or player2)
+export async function getUserMatches(userId: number) {
+  return withConnection(async (connection) => {
+    const [rows] = await connection.execute(
+      `SELECT id, tournament_id, player1_id, player2_id, round_number, match_number, scheduled_time, player1_score, player2_score, winner_id, status, created_at, updated_at
+       FROM matches
+       WHERE (player1_id = ? OR player2_id = ?) AND status != 'cancelled'
+       ORDER BY scheduled_time DESC, created_at DESC`,
+      [userId, userId]
+    )
+    return rows as any[]
+  })
+}
+
+// Fetch recent match submissions for a user
+export async function getRecentMatchSubmissions(userId: number, limit = 5) {
+  return withConnection(async (connection) => {
+    const [rows] = await connection.execute(
+      `SELECT mr.id, mr.match_id, mr.player1_score, mr.player2_score, mr.screenshot_url, mr.notes, mr.submission_time, mr.is_confirmed,
+              m.tournament_id, m.player1_id, m.player2_id, t.name as tournament_name
+       FROM match_results mr
+       JOIN matches m ON mr.match_id = m.id
+       JOIN tournaments t ON m.tournament_id = t.id
+       WHERE mr.submitted_by = ?
+       ORDER BY mr.submission_time DESC
+       LIMIT ?`,
+      [userId, limit]
+    )
+    return rows as any[]
+  })
+}
+
 // Close pool when application shuts down
 if (typeof process !== "undefined" && process?.on && typeof window === "undefined") {
   process.on("SIGINT", async () => {

@@ -1,4 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { submitMatchResult, getUserMatches, getRecentMatchSubmissions } from "@/lib/database"
+import { requireAuth } from "@/lib/auth"
 
 // Mock OCR function
 async function extractScoreFromImage(imageFile: File) {
@@ -17,8 +19,10 @@ async function extractScoreFromImage(imageFile: File) {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = requireAuth(request)
     const formData = await request.formData()
 
+    const matchId = formData.get("match_id") as string
     const tournamentId = formData.get("tournament_id") as string
     const opponent = formData.get("opponent") as string
     const myScore = formData.get("my_score") as string
@@ -27,7 +31,7 @@ export async function POST(request: NextRequest) {
     const screenshot = formData.get("screenshot") as File
 
     // Validate required fields
-    if (!tournamentId || !opponent || !myScore || !opponentScore) {
+    if (!matchId || !tournamentId || !opponent || !myScore || !opponentScore) {
       return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
     }
 
@@ -37,18 +41,11 @@ export async function POST(request: NextRequest) {
     // Process screenshot if provided
     if (screenshot && screenshot.size > 0) {
       try {
-        // In a real app, you would:
-        // 1. Upload the image to cloud storage (AWS S3, Cloudinary, etc.)
-        // 2. Process with OCR service (Google Vision, Tesseract, etc.)
-        // 3. Store the extracted data
-
         ocrData = await extractScoreFromImage(screenshot)
         screenshotUrl = `/uploads/screenshots/${Date.now()}-${screenshot.name}`
-
-        // Verify OCR results match submitted scores
+        // OCR validation logic (optional)
         const submittedMyScore = Number.parseInt(myScore)
         const submittedOpponentScore = Number.parseInt(opponentScore)
-
         if (
           Math.abs(ocrData.player1_score - submittedMyScore) > 1 ||
           Math.abs(ocrData.player2_score - submittedOpponentScore) > 1
@@ -69,35 +66,43 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create match result submission (mock)
-    const matchResult = {
-      id: Math.floor(Math.random() * 1000),
-      tournament_id: Number.parseInt(tournamentId),
-      opponent: opponent,
-      my_score: Number.parseInt(myScore),
-      opponent_score: Number.parseInt(opponentScore),
-      match_notes: matchNotes,
+    // Store match result in the database
+    const insertedId = await submitMatchResult({
+      match_id: Number.parseInt(matchId),
+      submitted_by: user.userId,
+      player1_score: Number.parseInt(myScore),
+      player2_score: Number.parseInt(opponentScore),
       screenshot_url: screenshotUrl,
-      ocr_data: ocrData,
-      status: "pending_confirmation",
-      submitted_at: new Date().toISOString(),
-    }
-
-    // In a real app, you would:
-    // 1. Save to database
-    // 2. Send notification to opponent
-    // 3. Update tournament standings if confirmed
+      notes: matchNotes,
+      ocr_extracted_data: ocrData,
+    })
 
     return NextResponse.json(
       {
         success: true,
-        data: matchResult,
-        message: "Match result submitted successfully. Your opponent will be notified to confirm.",
+        id: insertedId,
+        message: "Match result submitted and stored successfully. Your opponent will be notified to confirm.",
       },
       { status: 201 },
     )
   } catch (error) {
     console.error("Error submitting match result:", error)
     return NextResponse.json({ success: false, error: "Failed to submit match result" }, { status: 500 })
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const user = requireAuth(request)
+    const { searchParams } = new URL(request.url)
+    if (searchParams.get("recent") === "true") {
+      const recent = await getRecentMatchSubmissions(user.userId, 5)
+      return NextResponse.json({ success: true, data: recent })
+    }
+    const matches = await getUserMatches(user.userId)
+    return NextResponse.json({ success: true, data: matches })
+  } catch (error) {
+    console.error("Error fetching user matches:", error)
+    return NextResponse.json({ success: false, error: "Failed to fetch matches" }, { status: 500 })
   }
 }
