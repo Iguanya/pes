@@ -170,7 +170,7 @@ export async function createUser(userData: {
 }) {
   return withConnection(async (connection) => {
     const [result] = await connection.execute(
-      `INSERT INTO User (email, password_hash, name, phone, gamertag, role) 
+      `INSERT INTO Users (email, password_hash, name, phone, gamertag, role) 
        VALUES (?, ?, ?, ?, ?, ?)`,
       [userData.email, userData.password_hash, userData.name, userData.phone, userData.gamertag, userData.role],
     )
@@ -182,7 +182,7 @@ export async function createUser(userData: {
 
     // Get the created user
     const [User] = await connection.execute(
-      "SELECT id, email, name, phone, gamertag, role, created_at FROM User WHERE id = ?",
+      "SELECT id, email, name, phone, gamertag, role, created_at FROM users WHERE id = ?",
       [insertResult.insertId],
     )
 
@@ -192,14 +192,14 @@ export async function createUser(userData: {
 
 export async function getUserByEmail(email: string) {
   return withConnection(async (connection) => {
-    const [rows] = await connection.execute("SELECT * FROM User WHERE email = ?", [email])
+    const [rows] = await connection.execute("SELECT * FROM users WHERE email = ?", [email])
     return (rows as any[])[0] || null
   })
 }
 
 export async function getUserByGamertag(gamertag: string) {
   return withConnection(async (connection) => {
-    const [rows] = await connection.execute("SELECT * FROM User WHERE gamertag = ?", [gamertag])
+    const [rows] = await connection.execute("SELECT * FROM users WHERE gamertag = ?", [gamertag])
     return (rows as any[])[0] || null
   })
 }
@@ -207,7 +207,7 @@ export async function getUserByGamertag(gamertag: string) {
 export async function getUserById(id: number) {
   return withConnection(async (connection) => {
     const [rows] = await connection.execute(
-      "SELECT id, email, name, phone, gamertag, role, profile_image, created_at FROM User WHERE id = ? ",
+      "SELECT id, email, name, phone, gamertag, role, profile_image, created_at FROM users WHERE id = ? ",
       [id],
     )
     return (rows as any[])[0] || null
@@ -364,7 +364,7 @@ export async function validatePasswordResetToken(token: string) {
     const [rows] = await connection.execute(
       `SELECT prt.*, u.email, u.id as user_id 
        FROM password_reset_tokens prt
-       JOIN User u ON prt.user_id = u.id
+       JOIN users u ON prt.user_id = u.id
        WHERE prt.token = ? AND prt.used = FALSE AND prt.expires_at > NOW()`,
       [token],
     )
@@ -445,7 +445,7 @@ export async function getUserStats(userId: number) {
     COALESCE(SUM(t.entry_fee), 0) as total_spent
    FROM tournament_registrations tr
    LEFT JOIN tournaments t ON tr.tournament_id = t.id
-   WHERE tr.user_id = ? AND tr.payment_status = 'completed'`,
+   WHERE tr.player_id = ? AND tr.payment_status = 'completed'`,
   [userId],
 )
 
@@ -545,7 +545,7 @@ export async function getAdminStats() {
         COUNT(CASE WHEN is_active = 1 THEN 1 END) as active_users,
         COUNT(CASE WHEN role = 'player' THEN 1 END) as total_players,
         COUNT(CASE WHEN role = 'organizer' THEN 1 END) as total_organizers
-       FROM User`,
+       FROM users`,
     )
 
     const [tournamentStats] = await connection.execute(
@@ -624,7 +624,7 @@ export async function getRecentActivity(userId: number, role: string, limit = 10
                tr.created_at AS timestamp
         FROM tournament_registrations tr
         JOIN tournaments t ON tr.tournament_id = t.id
-        JOIN User u ON tr.user_id = u.id
+        JOIN User u ON tr.player_id = u.id
         WHERE t.organizer_id = ${userId} AND tr.payment_status = 'completed'
         UNION ALL
         SELECT 'match_completed' AS type,
@@ -644,7 +644,7 @@ export async function getRecentActivity(userId: number, role: string, limit = 10
                  tr.created_at AS timestamp
           FROM tournament_registrations tr
           JOIN tournaments t ON tr.tournament_id = t.id
-          WHERE tr.user_id = ${userId} AND tr.payment_status = 'completed'
+          WHERE tr.player_id = ${userId} AND tr.payment_status = 'completed'
 
           UNION ALL
 
@@ -686,7 +686,7 @@ export async function getTournaments(
              COUNT(tr.id) as current_players,
              (t.entry_fee * COUNT(tr.id)) as current_prize_pool
       FROM tournaments t
-      LEFT JOIN User u ON t.organizer_id = u.id
+      LEFT JOIN users u ON t.organizer_id = u.id
       LEFT JOIN tournament_registrations tr 
         ON t.id = tr.tournament_id AND tr.payment_status = 'completed'
       WHERE t.status != 'cancelled'
@@ -742,7 +742,7 @@ export async function getTournamentById(id: string) {
         COUNT(tr.id) AS current_players,
         (t.entry_fee * COUNT(tr.id)) AS current_prize_pool
       FROM tournaments t
-      LEFT JOIN User u ON t.organizer_id = u.id
+      LEFT JOIN users u ON t.organizer_id = u.id
       LEFT JOIN tournament_registrations tr 
         ON t.id = tr.tournament_id AND tr.payment_status = 'completed'
       WHERE t.id = ?

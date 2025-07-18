@@ -63,7 +63,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     try {
     // Check if already registered
     const [existing] = await connection.execute(
-    "SELECT id FROM tournament_registrations WHERE user_id = ? AND tournament_id = ? AND payment_status = 'completed'",
+    "SELECT id FROM tournament_registrations WHERE player_id = ? AND tournament_id = ? AND payment_status = 'completed'",
     [userId, tournamentId]
     )
     if ((existing as any[]).length > 0) {
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
     // Insert registration
     await connection.execute(
-    `INSERT INTO tournament_registrations (user_id, tournament_id, payment_status, registration_date) VALUES (?, ?, 'completed', NOW())`,
+    `INSERT INTO tournament_registrations (player_id, tournament_id, payment_status, registration_date) VALUES (?, ?, 'completed', NOW())`,
     [userId, tournamentId]
     )
     } finally {
