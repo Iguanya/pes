@@ -208,18 +208,17 @@ export default function DashboardPage() {
 
           {isOrganizer && (
             <>
-              <Card>
+              <Card className="bg-blue-100 hover:bg-blue-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">My Tournaments</CardTitle>
                   <Trophy className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{stats.total_tournaments || 0}</div>
-                  <p className="text-xs text-muted-foreground">{stats.active_tournaments || 0} currently active</p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-blue-100 hover:bg-blue-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Participants</CardTitle>
                   <Users className="h-4 w-4 text-muted-foreground" />
@@ -230,7 +229,7 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-blue-100 hover:bg-blue-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Revenue</CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -241,7 +240,7 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-blue-100 hover:bg-blue-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -261,7 +260,7 @@ export default function DashboardPage() {
 
           {isPlayer && (
             <>
-              <Card>
+              <Card className="bg-blue-100 hover:bg-blue-200">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Tournaments Joined</CardTitle>
                   <Trophy className="h-4 w-4 text-muted-foreground" />
@@ -272,7 +271,7 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-blue-100 hover:bg-blue-200">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Matches Played</CardTitle>
                   <Users className="h-4 w-4 text-muted-foreground" />
@@ -283,7 +282,7 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-blue-100 hover:bg-blue-200">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Earnings</CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -296,7 +295,7 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-blue-100 hover:bg-blue-200">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Win Rate</CardTitle>
                   <Target className="h-4 w-4 text-muted-foreground" />
@@ -312,7 +311,7 @@ export default function DashboardPage() {
 
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Quick Actions */}
-          <Card>
+          <Card className="bg-purple-100 hover:bg-purple-200">
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
               <CardDescription>
@@ -361,12 +360,6 @@ export default function DashboardPage() {
                       Manage Tournaments
                     </Link>
                   </Button>
-                  <Button variant="outline" className="w-full justify-start bg-transparent" asChild>
-                    <Link href="/analytics">
-                      <TrendingUp className="mr-2 h-4 w-4" />
-                      View Analytics
-                    </Link>
-                  </Button>
                 </>
               )}
 
@@ -396,7 +389,7 @@ export default function DashboardPage() {
           </Card>
 
           {/* Recent Activity */}
-          <Card>
+          <Card className="bg-purple-100 hover:bg-purple-200">
             <CardHeader>
               <CardTitle>Recent Activity</CardTitle>
               <CardDescription>Your latest platform activity</CardDescription>
@@ -428,7 +421,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Active Tournaments */}
-        <Card className="mt-8">
+        <Card className="mt-8 bg-blue-100">
           <CardHeader>
             <CardTitle>{isOrganizer ? "Your Tournaments" : "Available Tournaments"}</CardTitle>
             <CardDescription>
@@ -436,56 +429,57 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {tournaments.length > 0 ? (
-              <div className="space-y-4">
-                {tournaments.slice(0, 3).map((tournament) => (
-                  <div key={tournament.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h3 className="font-semibold">{tournament.name}</h3>
-                      <p className="text-sm text-gray-600">
-                        {tournament.current_players}/{tournament.max_players} players • KSh{" "}
-                        {tournament.entry_fee.toLocaleString()} entry
-                      </p>
-                      <Badge variant="secondary" className="mt-1 capitalize">
-                        {tournament.status}
-                      </Badge>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium">Prize Pool</p>
-                      <p className="text-lg font-bold text-green-600">
-                        KSh {(tournament.current_prize_pool || 0).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-                <div className="text-center pt-4">
-                  <Button variant="outline" asChild>
-                    <Link href="/tournaments">View All Tournaments</Link>
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <EmptyState
-                icon={Trophy}
-                title="No tournaments found"
-                description={
-                  isOrganizer
-                    ? "Create your first tournament to get started"
-                    : "No active tournaments available right now"
-                }
-                action={
-                  isOrganizer
-                    ? {
-                        label: "Create Tournament",
-                        onClick: () => router.push("/tournaments/create"),
-                      }
-                    : undefined
-                }
-              />
-            )}
-          </CardContent>
-        </Card>
-      </div>
+  {tournaments.length > 0 ? (
+    <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+      {tournaments.map((tournament) => (
+        <div key={tournament.id} className="p-4 border rounded-lg bg-white shadow hover:bg-gray-300 transition-colors">
+          <div className="mb-2">
+            <h3 className="font-semibold text-lg">{tournament.name}</h3>
+            <p className="text-sm text-gray-600">
+              {tournament.current_players}/{tournament.max_players} players • KSh{" "}
+              {tournament.entry_fee.toLocaleString()} entry
+            </p>
+          </div>
+          <Badge variant="secondary" className="capitalize bg-gray-200 text-gray-800 mb-2">
+            {tournament.status}
+          </Badge>
+          <div className="mt-2">
+            <p className="text-sm font-medium text-gray-700">Prize Pool</p>
+            <p className="text-lg font-bold text-green-600">
+              KSh {(tournament.current_prize_pool || 0).toLocaleString()}
+            </p>
+          </div>
+          <div className="mt-4">
+            <Button asChild className="w-full bg-green-600 hover:bg-green-700 text-white">
+              <Link href={`/tournaments/${tournament.id}/register`}>Register Now</Link>
+            </Button>
+          </div>
+        </div>
+      ))}
     </div>
+  ) : (
+    <EmptyState
+      icon={Trophy}
+      title="No tournaments found"
+      description={
+        isOrganizer
+          ? "Create your first tournament to get started"
+          : "No active tournaments available right now"
+      }
+      action={
+        isOrganizer
+          ? {
+              label: "Create Tournament",
+              onClick: () => router.push("/tournaments/create"),
+            }
+          : undefined
+      }
+    />
+  )}
+</CardContent>
+
+</Card>
+</div>
+</div>
   )
 }

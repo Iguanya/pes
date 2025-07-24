@@ -100,10 +100,9 @@ export default function TournamentsPage() {
       {/* Header */}
       <Navbar/>
      
-
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-4 bg-gray-100 rounded shadow">
         {/* Filters */}
-        <Card className="mb-8">
+        <Card className="mb-6 border-none ">
           <CardHeader >
             <CardTitle className="flex items-center gap-2">
               <Filter className="h-5 w-5" />
@@ -154,7 +153,7 @@ export default function TournamentsPage() {
         {/* Tournament Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredTournaments.map((tournament) => (
-            <Card key={tournament.id} className="hover:shadow-lg transition-shadow">
+            <Card key={tournament.id} className="hover:shadow-lg transition-shadow bg-blue-100 hover:bg-blue-200">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div>

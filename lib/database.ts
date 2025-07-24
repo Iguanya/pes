@@ -445,7 +445,7 @@ export async function getUserStats(userId: number) {
     COALESCE(SUM(t.entry_fee), 0) as total_spent
    FROM tournament_registrations tr
    LEFT JOIN tournaments t ON tr.tournament_id = t.id
-   WHERE tr.player_id = ? AND tr.payment_status = 'completed'`,
+   WHERE tr.user_id = ? AND tr.payment_status = 'completed'`,
   [userId],
 )
 
@@ -624,7 +624,7 @@ export async function getRecentActivity(userId: number, role: string, limit = 10
                tr.created_at AS timestamp
         FROM tournament_registrations tr
         JOIN tournaments t ON tr.tournament_id = t.id
-        JOIN User u ON tr.player_id = u.id
+        JOIN Users u ON tr.user_id = u.id
         WHERE t.organizer_id = ${userId} AND tr.payment_status = 'completed'
         UNION ALL
         SELECT 'match_completed' AS type,
@@ -644,7 +644,7 @@ export async function getRecentActivity(userId: number, role: string, limit = 10
                  tr.created_at AS timestamp
           FROM tournament_registrations tr
           JOIN tournaments t ON tr.tournament_id = t.id
-          WHERE tr.player_id = ${userId} AND tr.payment_status = 'completed'
+          WHERE tr.user_id = ${userId} AND tr.payment_status = 'completed'
 
           UNION ALL
 

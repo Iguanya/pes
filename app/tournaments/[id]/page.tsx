@@ -30,8 +30,8 @@ export default async function TournamentDetailsPage({ params }: { params: { id: 
   return (
     <>
       <Navbar />
-    <div className="min-h-screen bg-gray-50 py-8 px-4 w-80">
-      <div className="max-w-2xl mx-auto bg-white rounded shadow p-6">
+    <div className="min-h-screen bg-gray-500 py-8 px-4 w-80">
+      <div className="max-w-2xl mx-auto bg-blue rounded shadow p-6">
         <h1 className="text-2xl font-bold mb-2">{tournament.name}</h1>
         <p className="mb-4 text-gray-600">{tournament.description || "No description provided."}</p>
         <div className="mb-2">
