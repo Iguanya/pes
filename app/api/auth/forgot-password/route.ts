@@ -3,6 +3,8 @@ import { getUserByEmail, createPasswordResetToken } from "@/lib/database"
 import { sendEmail } from "@/lib/email"
 import crypto from "crypto"
 
+export const runtime = 'nodejs'; // 👈 Add this at the top
+
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json()
