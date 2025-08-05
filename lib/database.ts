@@ -170,7 +170,7 @@ export async function createUser(userData: {
 }) {
   return withConnection(async (connection) => {
     const [result] = await connection.execute(
-      `INSERT INTO Users (email, password_hash, name, phone, gamertag, role) 
+      `INSERT INTO users (email, password_hash, name, phone, gamertag, role) 
        VALUES (?, ?, ?, ?, ?, ?)`,
       [userData.email, userData.password_hash, userData.name, userData.phone, userData.gamertag, userData.role],
     )
@@ -224,7 +224,7 @@ export async function getUserSettings(userId: number) {
         language, timezone, theme, currency,
         profile_visibility, show_stats, show_earnings, allow_friend_requests
        FROM user_settings 
-       WHERE user_id = ?`,
+       WHERE player_id = ?`,
       [userId],
     )
 
@@ -232,7 +232,7 @@ export async function getUserSettings(userId: number) {
 
     if (!settings) {
       // Create default settings if none exist
-      await connection.execute(`INSERT INTO user_settings (user_id) VALUES (?)`, [userId])
+      await connection.execute(`INSERT INTO user_settings (player_id) VALUES (?)`, [userId])
 
       // Return default settings
       return {
@@ -317,7 +317,7 @@ export async function updateUserSettings(
         language = ?, timezone = ?, theme = ?, currency = ?,
         profile_visibility = ?, show_stats = ?, show_earnings = ?, allow_friend_requests = ?,
         updated_at = CURRENT_TIMESTAMP
-       WHERE user_id = ?`,
+       WHERE player_id = ?`,
       [
         settings.notifications.email_tournaments,
         settings.notifications.email_matches,
@@ -445,7 +445,7 @@ export async function getUserStats(userId: number) {
     COALESCE(SUM(t.entry_fee), 0) as total_spent
    FROM tournament_registrations tr
    LEFT JOIN tournaments t ON tr.tournament_id = t.id
-   WHERE tr.user_id = ? AND tr.payment_status = 'completed'`,
+   WHERE tr.player_id = ? AND tr.payment_status = 'completed'`,
   [userId],
 )
 
@@ -504,7 +504,7 @@ export async function getOrganizerStats(userId: number) {
 
     // Get total participants across all tournaments
     const [participantStats] = await connection.execute(
-      `SELECT COUNT(DISTINCT tr.user_id) as total_participants
+      `SELECT COUNT(DISTINCT tr.player_id) as total_participants
        FROM tournaments t
        LEFT JOIN tournament_registrations tr ON t.id = tr.tournament_id
        WHERE t.organizer_id = ? AND tr.payment_status = 'completed'`,
@@ -604,7 +604,7 @@ export async function getRecentActivity(userId: number, role: string, limit = 10
     if (role === "admin") {
       query = `
         SELECT 'user_registration' as type, u.name as description, u.created_at as timestamp
-        FROM User u
+        FROM users u
         WHERE u.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
         UNION ALL
         SELECT 'tournament_created' as type, CONCAT('Tournament "', t.name, '" created') as description, t.created_at as timestamp
@@ -624,7 +624,7 @@ export async function getRecentActivity(userId: number, role: string, limit = 10
                tr.created_at AS timestamp
         FROM tournament_registrations tr
         JOIN tournaments t ON tr.tournament_id = t.id
-        JOIN Users u ON tr.user_id = u.id
+        JOIN users u ON tr.player_id = u.id
         WHERE t.organizer_id = ${userId} AND tr.payment_status = 'completed'
         UNION ALL
         SELECT 'match_completed' AS type,
@@ -644,7 +644,7 @@ export async function getRecentActivity(userId: number, role: string, limit = 10
                  tr.created_at AS timestamp
           FROM tournament_registrations tr
           JOIN tournaments t ON tr.tournament_id = t.id
-          WHERE tr.user_id = ${userId} AND tr.payment_status = 'completed'
+          WHERE tr.player_id = ${userId} AND tr.payment_status = 'completed'
 
           UNION ALL
 
