@@ -869,6 +869,7 @@ export async function getUserMatches(userId: number) {
 }
 
 // Fetch recent match submissions for a user
+
 export async function getRecentMatchSubmissions(userId: number, limit = 5) {
   return withConnection(async (connection) => {
     const [rows] = await connection.execute(
@@ -879,12 +880,13 @@ export async function getRecentMatchSubmissions(userId: number, limit = 5) {
        JOIN tournaments t ON m.tournament_id = t.id
        WHERE mr.submitted_by = ?
        ORDER BY mr.submission_time DESC
-       LIMIT ?`,
-      [userId, limit]
-    )
-    return rows as any[]
-  })
+       LIMIT ${connection.escape(limit)}`,
+      [userId]
+    );
+    return rows as any[];
+  });
 }
+
 
 // Close pool when application shuts down
 if (typeof process !== "undefined" && process?.on && typeof window === "undefined") {

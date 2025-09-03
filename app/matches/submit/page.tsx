@@ -43,7 +43,8 @@ export default function SubmitMatchResultPage() {
           setMatches(json.data)
         }
       } catch (err) {
-        // ignore
+        console.log("Failed to fetch matches:", err)
+        setError("Failed to load matches.")
       }
     }
     fetchMatches()
@@ -57,7 +58,8 @@ export default function SubmitMatchResultPage() {
           setActiveTournaments(json.data)
         }
       } catch (err) {
-        // ignore
+        console.log("Failed to fetch tournaments:", err)
+        setError("Failed to load tournaments.")
       }
     }
     fetchTournaments()
@@ -71,7 +73,8 @@ export default function SubmitMatchResultPage() {
           setRecentMatches(json.data)
         }
       } catch (err) {
-        // ignore
+        console.log("Failed to fetch recent matches:", err)
+        setError("Failed to load recent matches.")
       }
     }
     fetchRecentMatches()
