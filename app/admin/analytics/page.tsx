@@ -26,43 +26,11 @@ export default function Analytics() {
 
   const loadAnalyticsData = async () => {
     try {
-      // Mock data - replace with actual API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      const mockData: AnalyticsData = {
-        userGrowth: [
-          { month: "Jul", users: 1200, active: 800 },
-          { month: "Aug", users: 1450, active: 950 },
-          { month: "Sep", users: 1800, active: 1200 },
-          { month: "Oct", users: 2200, active: 1500 },
-          { month: "Nov", users: 2800, active: 1900 },
-          { month: "Dec", users: 3400, active: 2300 },
-        ],
-        tournamentStats: [
-          { month: "Jul", tournaments: 25, participants: 450 },
-          { month: "Aug", tournaments: 32, participants: 580 },
-          { month: "Sep", tournaments: 28, participants: 520 },
-          { month: "Oct", tournaments: 35, participants: 650 },
-          { month: "Nov", tournaments: 42, participants: 780 },
-          { month: "Dec", tournaments: 38, participants: 720 },
-        ],
-        revenueData: [
-          { month: "Jul", revenue: 125000, fees: 12500 },
-          { month: "Aug", revenue: 158000, fees: 15800 },
-          { month: "Sep", revenue: 142000, fees: 14200 },
-          { month: "Oct", revenue: 185000, fees: 18500 },
-          { month: "Nov", revenue: 220000, fees: 22000 },
-          { month: "Dec", revenue: 195000, fees: 19500 },
-        ],
-        topPerformers: [
-          { name: "John Kamau", earnings: 45000, tournaments: 28, winRate: 78 },
-          { name: "Mary Wanjiku", earnings: 38000, tournaments: 22, winRate: 72 },
-          { name: "David Ochieng", earnings: 32000, tournaments: 35, winRate: 65 },
-          { name: "Sarah Muthoni", earnings: 28000, tournaments: 18, winRate: 81 },
-        ],
-      }
-
-      setData(mockData)
+      const params = new URLSearchParams({ timeRange })
+      const res = await fetch(`/api/admin/analytics?${params.toString()}`)
+      const json = await res.json()
+      if (json.success) setData(json.data as AnalyticsData)
+      else setData(null)
     } catch (error) {
       console.error("Failed to load analytics data:", error)
     } finally {

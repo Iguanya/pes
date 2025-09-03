@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Bell, Search, Settings, LogOut } from "lucide-react"
+import { Bell, Search, Settings, LogOut, MessageSquare, AlertTriangle, DollarSign, Trophy, Users } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
 
@@ -26,6 +26,14 @@ interface AdminHeaderProps {
 
 export function AdminHeader({ user }: AdminHeaderProps) {
   const router = useRouter()
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [notifications, setNotifications] = useState<
+    { id: number; type: string; title: string; description: string; time: string }[]
+  >([
+    { id: 1, type: "payment", title: "Payment pending", description: "KSh 1,000 entry fee", time: "2m" },
+    { id: 2, type: "dispute", title: "New dispute", description: "Match #501 reported", time: "18m" },
+    { id: 3, type: "tournament", title: "Tournament full", description: "Champions League (32/32)", time: "1h" },
+  ])
 
   const handleLogout = () => {
     localStorage.removeItem("user")
@@ -45,10 +53,44 @@ export function AdminHeader({ user }: AdminHeaderProps) {
 
         <div className="flex items-center space-x-4">
           {/* Notifications */}
-          <Button variant="ghost" size="sm" className="relative">
-            <Bell className="h-4 w-4" />
-            <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs bg-red-500">5</Badge>
-          </Button>
+          <DropdownMenu open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="relative">
+                <Bell className="h-4 w-4" />
+                {notifications.length > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs bg-red-500">
+                    {notifications.length}
+                  </Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {notifications.length === 0 ? (
+                <div className="p-3 text-sm text-muted-foreground">You're all caught up</div>
+              ) : (
+                notifications.map((n) => (
+                  <DropdownMenuItem key={n.id} className="flex items-start space-x-2">
+                    <div className="mt-0.5">
+                      {n.type === "payment" && <DollarSign className="h-4 w-4 text-green-600" />}
+                      {n.type === "dispute" && <AlertTriangle className="h-4 w-4 text-red-600" />}
+                      {n.type === "tournament" && <Trophy className="h-4 w-4 text-yellow-600" />}
+                      {n.type === "user" && <Users className="h-4 w-4 text-blue-600" />}
+                      {n.type === "message" && <MessageSquare className="h-4 w-4 text-purple-600" />}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">{n.title}</div>
+                      <div className="text-xs text-muted-foreground">{n.description}</div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">{n.time}</div>
+                  </DropdownMenuItem>
+                ))
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="justify-center text-sm">View all</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Settings */}
           <Button variant="ghost" size="sm">
