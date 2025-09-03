@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs"
 import { getUserByEmail } from "@/lib/database"
 import { generateToken } from "@/lib/auth"
 import { loginSchema } from "@/lib/validation"
+import { ZodError } from "zod"
 
 export async function POST(request: NextRequest) {
   try {
@@ -51,13 +52,30 @@ export async function POST(request: NextRequest) {
 
     return response
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Login error:", error)
 
-    if (error instanceof Error && error.name === "ZodError") {
-      return NextResponse.json({ success: false, error: "Invalid input data" }, { status: 400 })
+    // Handle Zod validation errors
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid input data",
+          issues: error.errors, // Include validation issues
+        },
+        { status: 400 }
+      )
     }
 
-    return NextResponse.json({ success: false, error: "Login failed" }, { status: 500 })
+    // Handle other unanticipated errors with more details
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Login failed",
+        message: error?.message || "Unknown server error",
+        stack: process.env.NODE_ENV !== "production" ? error?.stack : undefined,
+      },
+      { status: 500 }
+    )
   }
 }

@@ -6,6 +6,7 @@ import { Footer } from "@/components/layout/footer"
 import pesBackground from "@/public/pesBackground.jpg"
 import { Trophy, Users, DollarSign, Star, Shield } from "lucide-react"
 import Link from "next/link"
+import { Analytics } from "@vercel/analytics/next"
 
 export default function HomePage() {
   const features = [
